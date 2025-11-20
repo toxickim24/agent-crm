@@ -3,27 +3,22 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 
 const Mailers = () => {
   const stats = [
-    { label: 'Total Mailers Sent', value: '2,145', icon: Send, color: 'blue' },
-    { label: 'Mailers Sent Today', value: '23', icon: Send, color: 'green' },
-    { label: 'Total Campaign Cost', value: '$4,289', icon: DollarSign, color: 'red' },
-    { label: 'Pending Delivery', value: '45', icon: Package, color: 'yellow' },
+    { label: 'Total Mailers Sent', value: '0', icon: Send, color: 'blue' },
+    { label: 'Mailers Sent Today', value: '0', icon: Send, color: 'green' },
+    { label: 'Total Campaign Cost', value: '$0', icon: DollarSign, color: 'red' },
+    { label: 'Pending Delivery', value: '0', icon: Package, color: 'yellow' },
   ];
 
   const monthlyData = [
-    { month: 'Jul', sent: 234, cost: 468 },
-    { month: 'Aug', sent: 312, cost: 624 },
-    { month: 'Sep', sent: 278, cost: 556 },
-    { month: 'Oct', sent: 401, cost: 802 },
-    { month: 'Nov', sent: 356, cost: 712 },
-    { month: 'Dec', sent: 423, cost: 846 },
+    { month: 'Jul', sent: 0, cost: 0 },
+    { month: 'Aug', sent: 0, cost: 0 },
+    { month: 'Sep', sent: 0, cost: 0 },
+    { month: 'Oct', sent: 0, cost: 0 },
+    { month: 'Nov', sent: 0, cost: 0 },
+    { month: 'Dec', sent: 0, cost: 0 },
   ];
 
-  const campaigns = [
-    { name: 'Holiday Postcards', sent: 500, cost: '$1,000', status: 'Delivered', date: 'Dec 15, 2024' },
-    { name: 'New Listing Flyers', sent: 300, cost: '$600', status: 'In Transit', date: 'Dec 20, 2024' },
-    { name: 'Market Update', sent: 450, cost: '$900', status: 'Delivered', date: 'Dec 10, 2024' },
-    { name: 'Open House Invites', sent: 250, cost: '$500', status: 'Delivered', date: 'Dec 5, 2024' },
-  ];
+  const campaigns = [];
 
   const getStatusColor = (status) => {
     switch (status) {

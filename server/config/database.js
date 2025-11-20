@@ -68,22 +68,120 @@ const initDB = async () => {
       )
     `);
 
-    // Contacts table
+    // Lead Types table
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS contacts (
+      CREATE TABLE IF NOT EXISTS lead_types (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        first_name VARCHAR(255) NOT NULL,
-        last_name VARCHAR(255) NOT NULL,
-        email VARCHAR(191),
-        phone VARCHAR(50),
-        lead_type ENUM('Probate', 'Refi', 'Equity', 'Permit', 'New Home'),
-        status VARCHAR(50) DEFAULT 'new',
+        name VARCHAR(100) NOT NULL UNIQUE,
+        color VARCHAR(7) DEFAULT '#3B82F6',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
+
+    // Insert default lead types
+    await connection.query(`
+      INSERT IGNORE INTO lead_types (name, color) VALUES
+        ('Probate', '#8B5CF6'),
+        ('Refi', '#3B82F6'),
+        ('Equity', '#10B981'),
+        ('Permit', '#F59E0B'),
+        ('Home', '#EF4444')
+    `);
+
+    // Check if contacts table needs migration
+    const [tableCheck] = await connection.query(`
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'contacts'
+      AND COLUMN_NAME = 'property_address_full'
+    `);
+
+    if (tableCheck.length === 0) {
+      // Old contacts table exists, need to migrate
+      console.log('📋 Migrating contacts table to new schema...');
+
+      // Rename old table
+      await connection.query(`RENAME TABLE contacts TO contacts_old`);
+
+      // Create new contacts table
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS contacts (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          lead_id VARCHAR(100),
+          property_address_full VARCHAR(500),
+          property_address_city VARCHAR(100),
+          property_address_state VARCHAR(50),
+          property_address_zipcode VARCHAR(20),
+          property_address_county VARCHAR(100),
+          estimated_value DECIMAL(15, 2),
+          property_type VARCHAR(100),
+          sale_date DATE,
+          contact_1_name VARCHAR(255),
+          contact_1_phone1 VARCHAR(50),
+          contact_1_email1 VARCHAR(191),
+          lead_type INT,
+          status VARCHAR(50) DEFAULT 'new',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (lead_type) REFERENCES lead_types(id) ON DELETE SET NULL
+        )
+      `);
+
+      // Migrate old data
+      await connection.query(`
+        INSERT INTO contacts (
+          id, user_id, contact_1_name, contact_1_email1, contact_1_phone1,
+          lead_type, status, created_at, updated_at
+        )
+        SELECT
+          c.id,
+          c.user_id,
+          CONCAT(c.first_name, ' ', c.last_name),
+          c.email,
+          c.phone,
+          lt.id,
+          c.status,
+          c.created_at,
+          c.updated_at
+        FROM contacts_old c
+        LEFT JOIN lead_types lt ON c.lead_type = lt.name
+      `);
+
+      // Drop old table
+      await connection.query(`DROP TABLE contacts_old`);
+
+      console.log('✅ Contacts table migrated successfully');
+    } else {
+      // Table already migrated, just ensure it exists with correct schema
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS contacts (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          lead_id VARCHAR(100),
+          property_address_full VARCHAR(500),
+          property_address_city VARCHAR(100),
+          property_address_state VARCHAR(50),
+          property_address_zipcode VARCHAR(20),
+          property_address_county VARCHAR(100),
+          estimated_value DECIMAL(15, 2),
+          property_type VARCHAR(100),
+          sale_date DATE,
+          contact_1_name VARCHAR(255),
+          contact_1_phone1 VARCHAR(50),
+          contact_1_email1 VARCHAR(191),
+          lead_type INT,
+          status VARCHAR(50) DEFAULT 'new',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (lead_type) REFERENCES lead_types(id) ON DELETE SET NULL
+        )
+      `);
+    }
 
     // Create default admin user (email: admin@agentcrm.com, password: Admin123!)
     const [rows] = await connection.query('SELECT id FROM users WHERE email = ?', ['admin@agentcrm.com']);

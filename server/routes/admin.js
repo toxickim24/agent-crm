@@ -12,7 +12,9 @@ router.get('/users', async (req, res) => {
   try {
     const [users] = await pool.query(`
       SELECT u.id, u.name, u.email, u.role, u.status, u.product_updates, u.created_at,
-             p.home, p.contacts, p.calls_texts, p.emails, p.mailers
+             p.home, p.contacts, p.calls_texts, p.emails, p.mailers,
+             p.contact_view, p.contact_add, p.contact_edit, p.contact_delete,
+             p.contact_import, p.contact_export, p.allowed_lead_types
       FROM users u
       LEFT JOIN permissions p ON u.id = p.user_id
       WHERE u.role = 'client'
@@ -89,7 +91,14 @@ router.post('/users/:id/suspend', async (req, res) => {
 router.put('/users/:id/permissions', async (req, res) => {
   try {
     const { id } = req.params;
-    const { home, contacts, calls_texts, emails, mailers } = req.body;
+    const {
+      home, contacts, calls_texts, emails, mailers,
+      contact_view, contact_add, contact_edit, contact_delete,
+      contact_import, contact_export, allowed_lead_types
+    } = req.body;
+
+    console.log('📝 Updating permissions for user:', id);
+    console.log('📦 Received permissions:', req.body);
 
     // Check if user exists
     const [users] = await pool.query('SELECT id FROM users WHERE id = ? AND role = ?', [id, 'client']);
@@ -97,10 +106,16 @@ router.put('/users/:id/permissions', async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
+    // Prepare allowed_lead_types JSON
+    const allowedLeadTypesJson = allowed_lead_types ? JSON.stringify(allowed_lead_types) : null;
+    console.log('🔧 Prepared allowed_lead_types JSON:', allowedLeadTypesJson);
+
     // Update permissions
     const [result] = await pool.query(
       `UPDATE permissions
-       SET home = ?, contacts = ?, calls_texts = ?, emails = ?, mailers = ?
+       SET home = ?, contacts = ?, calls_texts = ?, emails = ?, mailers = ?,
+           contact_view = ?, contact_add = ?, contact_edit = ?, contact_delete = ?,
+           contact_import = ?, contact_export = ?, allowed_lead_types = ?
        WHERE user_id = ?`,
       [
         home ? 1 : 0,
@@ -108,9 +123,18 @@ router.put('/users/:id/permissions', async (req, res) => {
         calls_texts ? 1 : 0,
         emails ? 1 : 0,
         mailers ? 1 : 0,
+        contact_view ? 1 : 0,
+        contact_add ? 1 : 0,
+        contact_edit ? 1 : 0,
+        contact_delete ? 1 : 0,
+        contact_import ? 1 : 0,
+        contact_export ? 1 : 0,
+        allowedLeadTypesJson,
         id
       ]
     );
+
+    console.log('✅ Update result:', result.affectedRows, 'row(s) updated');
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Permissions not found.' });

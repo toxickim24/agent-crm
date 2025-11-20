@@ -83,8 +83,7 @@ const ClientDashboard = () => {
                   <button
                     onClick={() => {
                       setShowSettings(false);
-                      // We'll add password change modal here later
-                      alert('Password change feature - To be implemented');
+                      navigate('/dashboard/settings');
                     }}
                     className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >
@@ -134,8 +133,8 @@ const ClientDashboard = () => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-auto">
-          <div className="p-6">
+        <main className="flex-1 overflow-auto flex flex-col">
+          <div className="flex-1 p-6">
             <Outlet />
           </div>
 

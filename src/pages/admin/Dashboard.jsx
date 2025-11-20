@@ -17,7 +17,8 @@ import {
   Edit,
   Trash2,
   Eye,
-  EyeOff
+  EyeOff,
+  Tag
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -30,11 +31,13 @@ const AdminDashboard = () => {
   const [showApiConfig, setShowApiConfig] = useState(false);
   const [apiConfig, setApiConfig] = useState({});
   const [permissions, setPermissions] = useState({});
+  const [leadTypes, setLeadTypes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchClients();
     fetchPendingClients();
+    fetchLeadTypes();
   }, []);
 
   const fetchClients = async () => {
@@ -54,6 +57,15 @@ const AdminDashboard = () => {
       setPendingClients(response.data.users);
     } catch (error) {
       console.error('Failed to fetch pending clients:', error);
+    }
+  };
+
+  const fetchLeadTypes = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/lead-types');
+      setLeadTypes(response.data);
+    } catch (error) {
+      console.error('Failed to fetch lead types:', error);
     }
   };
 
@@ -92,18 +104,36 @@ const AdminDashboard = () => {
   };
 
   const handleEditPermissions = async (client) => {
+    console.log('Client data:', client);
+    const parsedLeadTypes = client.allowed_lead_types
+      ? (typeof client.allowed_lead_types === 'string'
+          ? JSON.parse(client.allowed_lead_types)
+          : client.allowed_lead_types)
+      : null;
+
+    const initialPermissions = {
+      home: client.home ?? true,
+      contacts: client.contacts ?? true,
+      calls_texts: client.calls_texts ?? true,
+      emails: client.emails ?? true,
+      mailers: client.mailers ?? true,
+      contact_view: client.contact_view ?? true,
+      contact_add: client.contact_add ?? true,
+      contact_edit: client.contact_edit ?? true,
+      contact_delete: client.contact_delete ?? true,
+      contact_import: client.contact_import ?? true,
+      contact_export: client.contact_export ?? true,
+      allowed_lead_types: parsedLeadTypes
+    };
+
+    console.log('Initial permissions:', initialPermissions);
     setSelectedClient(client);
-    setPermissions({
-      home: client.home,
-      contacts: client.contacts,
-      calls_texts: client.calls_texts,
-      emails: client.emails,
-      mailers: client.mailers
-    });
+    setPermissions(initialPermissions);
   };
 
   const handleSavePermissions = async () => {
     try {
+      console.log('Saving permissions:', permissions);
       await axios.put(`http://localhost:5000/api/admin/users/${selectedClient.id}/permissions`, permissions);
       fetchClients();
       setSelectedClient(null);
@@ -149,6 +179,20 @@ const AdminDashboard = () => {
         <div className="flex items-center justify-between px-6 py-3">
           <Logo className="h-8" />
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/admin/lead-types')}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            >
+              <Tag size={18} />
+              Lead Types
+            </button>
+            <button
+              onClick={() => navigate('/admin/statuses')}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+            >
+              <Tag size={18} />
+              Statuses
+            </button>
             <span className="text-sm text-gray-600 dark:text-gray-400">Admin: {user?.name}</span>
             <button
               onClick={toggleTheme}
@@ -323,26 +367,94 @@ const AdminDashboard = () => {
 
       {/* Permissions Modal */}
       {selectedClient && !showApiConfig && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedClient(null)}>
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setSelectedClient(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full p-6 my-8" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
               Edit Permissions: {selectedClient.name}
             </h3>
-            <div className="space-y-3 mb-6">
-              {['home', 'contacts', 'calls_texts', 'emails', 'mailers'].map((perm) => (
-                <label key={perm} className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={permissions[perm]}
-                    onChange={(e) => setPermissions({ ...permissions, [perm]: e.target.checked })}
-                    className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-gray-900 dark:text-white capitalize">
-                    {perm.replace('_', ' & ')}
-                  </span>
-                </label>
-              ))}
+
+            {/* General Permissions */}
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">General Permissions</h4>
+              <div className="space-y-3">
+                {['home', 'contacts', 'calls_texts', 'emails', 'mailers'].map((perm) => (
+                  <label key={perm} className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permissions[perm]}
+                      onChange={(e) => setPermissions({ ...permissions, [perm]: e.target.checked })}
+                      className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-gray-900 dark:text-white capitalize">
+                      {perm.replace('_', ' & ')}
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
+
+            {/* Contact Granular Permissions */}
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Contact Permissions</h4>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key: 'contact_view', label: 'View Contacts' },
+                  { key: 'contact_add', label: 'Add Contact' },
+                  { key: 'contact_edit', label: 'Edit Contact' },
+                  { key: 'contact_delete', label: 'Delete Contact' },
+                  { key: 'contact_import', label: 'Import Contacts' },
+                  { key: 'contact_export', label: 'Export Contacts' }
+                ].map((perm) => (
+                  <label key={perm.key} className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permissions[perm.key] ?? true}
+                      onChange={(e) => setPermissions({ ...permissions, [perm.key]: e.target.checked })}
+                      className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-gray-900 dark:text-white">
+                      {perm.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Lead Type Filter Permissions */}
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Lead Type Filters</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                Select which lead types this user can filter by. Leave unchecked to allow all lead types.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {leadTypes.map((leadType) => (
+                  <label key={leadType.id} className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permissions.allowed_lead_types === null || permissions.allowed_lead_types?.includes(leadType.id)}
+                      onChange={(e) => {
+                        const currentTypes = permissions.allowed_lead_types || leadTypes.map(lt => lt.id);
+                        let newTypes;
+                        if (e.target.checked) {
+                          newTypes = [...new Set([...currentTypes, leadType.id])];
+                        } else {
+                          newTypes = currentTypes.filter(id => id !== leadType.id);
+                        }
+                        setPermissions({ ...permissions, allowed_lead_types: newTypes.length === leadTypes.length ? null : newTypes });
+                      }}
+                      className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <span
+                      className="px-2 py-1 rounded text-sm font-medium text-white"
+                      style={{ backgroundColor: leadType.color }}
+                    >
+                      {leadType.name}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             <div className="flex gap-3">
               <button
                 onClick={handleSavePermissions}

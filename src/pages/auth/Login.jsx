@@ -117,13 +117,6 @@ const Login = () => {
             </p>
           </div>
         </div>
-
-        {/* Demo Credentials */}
-        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-          <p className="text-xs text-blue-900 dark:text-blue-300 font-medium mb-1">Demo Admin Credentials:</p>
-          <p className="text-xs text-blue-700 dark:text-blue-400">Email: admin@agentcrm.com</p>
-          <p className="text-xs text-blue-700 dark:text-blue-400">Password: Admin123!</p>
-        </div>
       </div>
     </div>
   );

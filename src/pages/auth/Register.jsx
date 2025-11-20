@@ -10,8 +10,7 @@ const Register = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    agreeToTerms: false,
-    productUpdates: false
+    agreeToTerms: false
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -54,7 +53,7 @@ const Register = () => {
       formData.name,
       formData.email,
       formData.password,
-      formData.productUpdates,
+      false,
       formData.agreeToTerms
     );
 
@@ -188,42 +187,26 @@ const Register = () => {
             </div>
 
             {/* Checkboxes */}
-            <div className="space-y-3">
-              <div className="flex items-start">
-                <input
-                  id="agreeToTerms"
-                  name="agreeToTerms"
-                  type="checkbox"
-                  checked={formData.agreeToTerms}
-                  onChange={handleChange}
-                  className="h-4 w-4 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  required
-                />
-                <label htmlFor="agreeToTerms" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                  I agree to the{' '}
-                  <Link to="/terms" className="text-blue-600 dark:text-blue-400 hover:underline">
-                    Terms of Use
-                  </Link>{' '}
-                  &{' '}
-                  <Link to="/privacy" className="text-blue-600 dark:text-blue-400 hover:underline">
-                    Privacy Policy
-                  </Link>
-                </label>
-              </div>
-
-              <div className="flex items-start">
-                <input
-                  id="productUpdates"
-                  name="productUpdates"
-                  type="checkbox"
-                  checked={formData.productUpdates}
-                  onChange={handleChange}
-                  className="h-4 w-4 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="productUpdates" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                  Send me product updates
-                </label>
-              </div>
+            <div className="flex items-start">
+              <input
+                id="agreeToTerms"
+                name="agreeToTerms"
+                type="checkbox"
+                checked={formData.agreeToTerms}
+                onChange={handleChange}
+                className="h-4 w-4 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                required
+              />
+              <label htmlFor="agreeToTerms" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                I agree to the{' '}
+                <Link to="/terms" className="text-blue-600 dark:text-blue-400 hover:underline">
+                  Terms of Use
+                </Link>{' '}
+                &{' '}
+                <Link to="/privacy" className="text-blue-600 dark:text-blue-400 hover:underline">
+                  Privacy Policy
+                </Link>
+              </label>
             </div>
 
             {/* Submit Button */}

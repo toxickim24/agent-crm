@@ -3,30 +3,25 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 
 const Emails = () => {
   const stats = [
-    { label: 'Total Sent', value: '8,432', icon: Send, color: 'blue' },
-    { label: 'Sent Today', value: '156', icon: Send, color: 'green' },
-    { label: 'Total Opens', value: '5,678', icon: Eye, color: 'purple' },
-    { label: 'Total Clicks', value: '3,241', icon: MousePointer, color: 'pink' },
-    { label: 'Opens Today', value: '234', icon: Eye, color: 'indigo' },
-    { label: 'Clicks Today', value: '89', icon: MousePointer, color: 'cyan' },
+    { label: 'Total Sent', value: '0', icon: Send, color: 'blue' },
+    { label: 'Sent Today', value: '0', icon: Send, color: 'green' },
+    { label: 'Total Opens', value: '0', icon: Eye, color: 'purple' },
+    { label: 'Total Clicks', value: '0', icon: MousePointer, color: 'pink' },
+    { label: 'Opens Today', value: '0', icon: Eye, color: 'indigo' },
+    { label: 'Clicks Today', value: '0', icon: MousePointer, color: 'cyan' },
   ];
 
   const performanceData = [
-    { date: 'Jan 1', sent: 120, opens: 85, clicks: 42 },
-    { date: 'Jan 2', sent: 145, opens: 98, clicks: 51 },
-    { date: 'Jan 3', sent: 98, opens: 67, clicks: 34 },
-    { date: 'Jan 4', sent: 167, opens: 112, clicks: 58 },
-    { date: 'Jan 5', sent: 134, opens: 89, clicks: 45 },
-    { date: 'Jan 6', sent: 156, opens: 103, clicks: 52 },
-    { date: 'Jan 7', sent: 189, opens: 125, clicks: 63 },
+    { date: 'Jan 1', sent: 0, opens: 0, clicks: 0 },
+    { date: 'Jan 2', sent: 0, opens: 0, clicks: 0 },
+    { date: 'Jan 3', sent: 0, opens: 0, clicks: 0 },
+    { date: 'Jan 4', sent: 0, opens: 0, clicks: 0 },
+    { date: 'Jan 5', sent: 0, opens: 0, clicks: 0 },
+    { date: 'Jan 6', sent: 0, opens: 0, clicks: 0 },
+    { date: 'Jan 7', sent: 0, opens: 0, clicks: 0 },
   ];
 
-  const campaigns = [
-    { name: 'New Year Promotion', sent: 1234, opens: 892, clicks: 456, rate: '72.3%' },
-    { name: 'Property Showcase', sent: 987, opens: 654, clicks: 321, rate: '66.3%' },
-    { name: 'Market Update', sent: 1543, opens: 1087, clicks: 543, rate: '70.5%' },
-    { name: 'Client Newsletter', sent: 2341, opens: 1654, clicks: 876, rate: '70.6%' },
-  ];
+  const campaigns = [];
 
   return (
     <div className="space-y-6">

@@ -1,21 +1,14 @@
 import { Phone, MessageSquare, TrendingUp, Clock } from 'lucide-react';
 
 const CallsTexts = () => {
-  // Dummy data
   const stats = [
-    { label: 'Total Calls', value: '1,234', icon: Phone, color: 'blue' },
-    { label: 'Calls Today', value: '45', icon: Phone, color: 'green' },
-    { label: 'Total Texts', value: '3,456', icon: MessageSquare, color: 'purple' },
-    { label: 'Texts Today', value: '89', icon: MessageSquare, color: 'pink' },
+    { label: 'Total Calls', value: '0', icon: Phone, color: 'blue' },
+    { label: 'Calls Today', value: '0', icon: Phone, color: 'green' },
+    { label: 'Total Texts', value: '0', icon: MessageSquare, color: 'purple' },
+    { label: 'Texts Today', value: '0', icon: MessageSquare, color: 'pink' },
   ];
 
-  const recentActivity = [
-    { type: 'call', contact: 'John Smith', duration: '5:23', time: '2 hours ago', status: 'completed' },
-    { type: 'text', contact: 'Sarah Johnson', message: 'Thanks for following up!', time: '3 hours ago' },
-    { type: 'call', contact: 'Mike Davis', duration: '2:15', time: '4 hours ago', status: 'completed' },
-    { type: 'text', contact: 'Emily Brown', message: 'Can we schedule a meeting?', time: '5 hours ago' },
-    { type: 'call', contact: 'David Wilson', duration: '0:45', time: '6 hours ago', status: 'missed' },
-  ];
+  const recentActivity = [];
 
   return (
     <div className="space-y-6">
