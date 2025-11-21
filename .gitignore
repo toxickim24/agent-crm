@@ -30,3 +30,8 @@ server/database.db
 
 # Sample CSV files
 server/*.csv
+
+# Environment variables
+.env
+.env.local
+.env.production
