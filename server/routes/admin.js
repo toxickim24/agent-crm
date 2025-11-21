@@ -5,21 +5,33 @@ import { authenticateToken, isAdmin, isActive } from '../middleware/auth.js';
 const router = express.Router();
 
 // Apply authentication and admin middleware to all routes
+router.use((req, res, next) => {
+  console.log('📨 Admin route request:', req.method, req.path);
+  next();
+});
 router.use(authenticateToken, isActive, isAdmin);
 
 // Get all users (clients)
 router.get('/users', async (req, res) => {
   try {
-    const [users] = await pool.query(`
-      SELECT u.id, u.name, u.email, u.role, u.status, u.product_updates, u.created_at,
+    const showDeleted = req.query.showDeleted === 'true';
+
+    let query = `
+      SELECT u.id, u.name, u.email, u.role, u.status, u.product_updates, u.deleted_at, u.created_at,
              p.home, p.contacts, p.calls_texts, p.emails, p.mailers,
              p.contact_view, p.contact_add, p.contact_edit, p.contact_delete,
              p.contact_import, p.contact_export, p.allowed_lead_types
       FROM users u
       LEFT JOIN permissions p ON u.id = p.user_id
-      WHERE u.role = 'client'
-      ORDER BY u.created_at DESC
-    `);
+      WHERE u.role = 'client'`;
+
+    if (!showDeleted) {
+      query += ` AND u.deleted_at IS NULL`;
+    }
+
+    query += ` ORDER BY u.created_at DESC`;
+
+    const [users] = await pool.query(query);
 
     res.json({ users });
   } catch (error) {
@@ -44,6 +56,173 @@ router.get('/users/pending', async (req, res) => {
     res.status(500).json({ error: 'Server error.' });
   }
 });
+
+// ========== Admin API Key Management ==========
+// IMPORTANT: These routes must come BEFORE /users/:id routes
+// because Express matches routes in order
+
+// Get all API keys for a specific user
+router.get('/apikeyslist/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const showDeleted = req.query.showDeleted === 'true';
+
+    let query = `SELECT id, name, api_key, is_active, last_used_at, deleted_at, created_at, updated_at
+       FROM api_keys
+       WHERE user_id = ?`;
+
+    if (!showDeleted) {
+      query += ` AND deleted_at IS NULL`;
+    }
+
+    query += ` ORDER BY created_at DESC`;
+
+    const [apiKeys] = await pool.query(query, [userId]);
+
+    res.json({ apiKeys });
+  } catch (error) {
+    console.error('Get API keys error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Create API key for a specific user
+router.post('/apikeyslist/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name } = req.body;
+
+    console.log('🔑 Creating API key for user:', userId, 'name:', name);
+
+    if (!name || name.trim() === '') {
+      console.log('❌ API key name is empty');
+      return res.status(400).json({ error: 'API key name is required.' });
+    }
+
+    // Check if user exists and is a client
+    console.log('👤 Checking if user exists...');
+    const [users] = await pool.query('SELECT id, role FROM users WHERE id = ?', [userId]);
+    console.log('👤 User query result:', users);
+
+    if (users.length === 0) {
+      console.log('❌ User not found');
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    if (users[0].role !== 'client') {
+      console.log('❌ User is not a client, role:', users[0].role);
+      return res.status(400).json({ error: 'API keys can only be created for clients.' });
+    }
+
+    // Generate API key
+    console.log('🔐 Generating API key...');
+    const crypto = await import('crypto');
+    const apiKey = crypto.randomBytes(32).toString('hex');
+    console.log('✅ API key generated');
+
+    console.log('💾 Inserting API key into database...');
+    const [result] = await pool.query(
+      `INSERT INTO api_keys (user_id, api_key, name)
+       VALUES (?, ?, ?)`,
+      [userId, apiKey, name.trim()]
+    );
+    console.log('✅ API key inserted, ID:', result.insertId);
+
+    console.log('📋 Fetching created API key...');
+    const [apiKeys] = await pool.query(
+      `SELECT id, name, api_key, is_active, last_used_at, deleted_at, created_at, updated_at
+       FROM api_keys
+       WHERE id = ?`,
+      [result.insertId]
+    );
+    console.log('✅ API key fetched:', apiKeys[0]);
+
+    res.status(201).json({
+      message: 'API key created successfully.',
+      apiKey: apiKeys[0]
+    });
+  } catch (error) {
+    console.error('❌ Create API key error:', error);
+    console.error('❌ Error details:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ error: error.message || 'Server error.' });
+  }
+});
+
+// Toggle API key active status
+router.patch('/apikeyslist/:userId/:keyId/toggle', async (req, res) => {
+  try {
+    const { userId, keyId } = req.params;
+
+    // Get current status
+    const [apiKeys] = await pool.query(
+      'SELECT is_active FROM api_keys WHERE id = ? AND user_id = ?',
+      [keyId, userId]
+    );
+
+    if (apiKeys.length === 0) {
+      return res.status(404).json({ error: 'API key not found.' });
+    }
+
+    const newStatus = !apiKeys[0].is_active;
+
+    await pool.query(
+      'UPDATE api_keys SET is_active = ? WHERE id = ? AND user_id = ?',
+      [newStatus, keyId, userId]
+    );
+
+    res.json({
+      message: `API key ${newStatus ? 'activated' : 'deactivated'} successfully.`,
+      is_active: newStatus
+    });
+  } catch (error) {
+    console.error('Toggle API key error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Soft delete API key
+router.delete('/apikeyslist/:userId/:keyId', async (req, res) => {
+  try {
+    const { userId, keyId } = req.params;
+
+    const [result] = await pool.query(
+      'UPDATE api_keys SET deleted_at = NOW() WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+      [keyId, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'API key not found.' });
+    }
+
+    res.json({ message: 'API key deleted successfully.' });
+  } catch (error) {
+    console.error('Delete API key error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Restore deleted API key
+router.post('/apikeyslist/:userId/:keyId/restore', async (req, res) => {
+  try {
+    const { userId, keyId } = req.params;
+
+    const [result] = await pool.query(
+      'UPDATE api_keys SET deleted_at = NULL WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL',
+      [keyId, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Deleted API key not found.' });
+    }
+
+    res.json({ message: 'API key restored successfully.' });
+  } catch (error) {
+    console.error('Restore API key error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ========== User Management Routes ==========
 
 // Approve user
 router.post('/users/:id/approve', async (req, res) => {
@@ -234,8 +413,79 @@ router.put('/users/:id/api-config', async (req, res) => {
   }
 });
 
-// Delete user
+// Update user details (edit user)
+router.put('/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, status } = req.body;
+
+    if (!name || !email) {
+      return res.status(400).json({ error: 'Name and email are required.' });
+    }
+
+    const [result] = await pool.query(
+      'UPDATE users SET name = ?, email = ?, status = ? WHERE id = ? AND role = ?',
+      [name, email, status || 'active', id, 'client']
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    res.json({ message: 'User updated successfully.' });
+  } catch (error) {
+    console.error('Update user error:', error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Email already exists.' });
+    }
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Soft delete user
 router.delete('/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [result] = await pool.query(
+      'UPDATE users SET deleted_at = NOW() WHERE id = ? AND role = ? AND deleted_at IS NULL',
+      [id, 'client']
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    res.json({ message: 'User deleted successfully.' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Restore deleted user
+router.post('/users/:id/restore', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [result] = await pool.query(
+      'UPDATE users SET deleted_at = NULL WHERE id = ? AND role = ? AND deleted_at IS NOT NULL',
+      [id, 'client']
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Deleted user not found.' });
+    }
+
+    res.json({ message: 'User restored successfully.' });
+  } catch (error) {
+    console.error('Restore user error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Permanent delete user
+router.delete('/users/:id/permanent', async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -248,9 +498,9 @@ router.delete('/users/:id', async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    res.json({ message: 'User deleted successfully.' });
+    res.json({ message: 'User permanently deleted.' });
   } catch (error) {
-    console.error('Delete user error:', error);
+    console.error('Permanent delete user error:', error);
     res.status(500).json({ error: 'Server error.' });
   }
 });

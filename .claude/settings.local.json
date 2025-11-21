@@ -21,7 +21,16 @@
       "Bash(node server/migrations/createStatusesTable.js:*)",
       "Bash(node server/migrations/removeStatusField.js)",
       "Bash(node server/migrations/regenerateLeadTypes.js:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(dir /B \"C:\\wamp64\\www\\agent-crm\\server\\migrations\" 2)",
+      "Bash(nul)",
+      "Bash(timeout 5 echo:*)",
+      "Bash(timeout 2 echo:*)",
+      "Bash(copy /b \"C:\\wamp64\\www\\agent-crm\\server\\routes\\admin.js\"+,, \"C:\\wamp64\\www\\agent-crm\\server\\routes\\admin.js\" 2)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)"
     ],
     "deny": [],
     "ask": []

@@ -12,7 +12,8 @@ import {
   Sun,
   Moon,
   Tag,
-  ArrowLeft
+  ArrowLeft,
+  RotateCcw
 } from 'lucide-react';
 
 const Statuses = () => {
@@ -22,16 +23,17 @@ const Statuses = () => {
   const [statuses, setStatuses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
   const [editingStatus, setEditingStatus] = useState(null);
   const [formData, setFormData] = useState({ name: '', color: '#3B82F6' });
 
   useEffect(() => {
     fetchStatuses();
-  }, []);
+  }, [showDeleted]);
 
   const fetchStatuses = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/statuses');
+      const response = await axios.get(`http://localhost:5000/api/statuses?showDeleted=${showDeleted}`);
       setStatuses(response.data);
     } catch (error) {
       console.error('Failed to fetch statuses:', error);
@@ -72,6 +74,17 @@ const Statuses = () => {
     } catch (error) {
       console.error('Failed to delete status:', error);
       alert(error.response?.data?.error || 'Failed to delete status');
+    }
+  };
+
+  const handleRestore = async (id) => {
+    try {
+      await axios.post(`http://localhost:5000/api/statuses/${id}/restore`);
+      fetchStatuses();
+      alert('Status restored successfully');
+    } catch (error) {
+      console.error('Failed to restore status:', error);
+      alert(error.response?.data?.error || 'Failed to restore status');
     }
   };
 
@@ -130,6 +143,18 @@ const Statuses = () => {
 
         {/* Statuses List */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Statuses</h2>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showDeleted}
+                onChange={(e) => setShowDeleted(e.target.checked)}
+                className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-600 dark:text-gray-400">Show Deleted</span>
+            </label>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-700">
@@ -166,11 +191,14 @@ const Statuses = () => {
                   </tr>
                 ) : (
                   statuses.map((status) => (
-                    <tr key={status.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <tr key={status.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${status.deleted_at ? 'bg-red-50 dark:bg-red-900/10' : ''}`}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2 font-medium text-gray-900 dark:text-white">
                           <Tag size={16} />
                           {status.name}
+                          {status.deleted_at && (
+                            <span className="ml-2 text-xs text-red-600 dark:text-red-400">(Deleted)</span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -189,20 +217,32 @@ const Statuses = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end gap-3">
-                          <button
-                            onClick={() => handleEdit(status)}
-                            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                          >
-                            <Edit size={14} />
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(status.id)}
-                            className="text-red-600 dark:text-red-400 hover:underline flex items-center gap-1"
-                          >
-                            <Trash2 size={14} />
-                            Delete
-                          </button>
+                          {status.deleted_at ? (
+                            <button
+                              onClick={() => handleRestore(status.id)}
+                              className="text-green-600 dark:text-green-400 hover:underline flex items-center gap-1"
+                            >
+                              <RotateCcw size={14} />
+                              Restore
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleEdit(status)}
+                                className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                              >
+                                <Edit size={14} />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDelete(status.id)}
+                                className="text-red-600 dark:text-red-400 hover:underline flex items-center gap-1"
+                              >
+                                <Trash2 size={14} />
+                                Delete
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

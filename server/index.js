@@ -6,6 +6,8 @@ import adminRoutes from './routes/admin.js';
 import contactsRoutes from './routes/contacts.js';
 import leadTypesRoutes from './routes/leadTypes.js';
 import statusesRoutes from './routes/statuses.js';
+import apiKeysRoutes from './routes/apiKeys.js';
+import webhookRoutes from './routes/webhook.js';
 import './config/database.js'; // Initialize database
 
 dotenv.config();
@@ -18,12 +20,20 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increased limit for bulk imports
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Log all requests
+app.use((req, res, next) => {
+  console.log(`📥 ${req.method} ${req.url}`);
+  next();
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/contacts', contactsRoutes);
 app.use('/api/lead-types', leadTypesRoutes);
 app.use('/api/statuses', statusesRoutes);
+app.use('/api/api-keys', apiKeysRoutes);
+app.use('/api/webhook', webhookRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

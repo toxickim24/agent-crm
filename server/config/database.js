@@ -31,10 +31,17 @@ const initDB = async () => {
         role ENUM('admin', 'client') NOT NULL DEFAULT 'client',
         status ENUM('pending', 'active', 'suspended') NOT NULL DEFAULT 'pending',
         product_updates BOOLEAN DEFAULT 0,
+        deleted_at TIMESTAMP NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
+
+    // Add deleted_at column to existing users table if it doesn't exist
+    await connection.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL
+    `).catch(() => {});
 
     // Permissions table
     await connection.query(`
@@ -68,16 +75,47 @@ const initDB = async () => {
       )
     `);
 
+    // API Keys table for webhook access
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS api_keys (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        api_key VARCHAR(64) UNIQUE NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        last_used_at TIMESTAMP NULL,
+        is_active BOOLEAN DEFAULT 1,
+        deleted_at TIMESTAMP NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        INDEX idx_api_key (api_key),
+        INDEX idx_user_active (user_id, is_active)
+      )
+    `);
+
+    // Add deleted_at column to existing api_keys table if it doesn't exist
+    await connection.query(`
+      ALTER TABLE api_keys
+      ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL
+    `).catch(() => {});
+
     // Lead Types table
     await connection.query(`
       CREATE TABLE IF NOT EXISTS lead_types (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
         color VARCHAR(7) DEFAULT '#3B82F6',
+        deleted_at TIMESTAMP NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
+
+    // Add deleted_at column to existing lead_types table if it doesn't exist
+    await connection.query(`
+      ALTER TABLE lead_types
+      ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL
+    `).catch(() => {});
 
     // Insert default lead types
     await connection.query(`

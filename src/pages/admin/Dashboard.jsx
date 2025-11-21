@@ -18,7 +18,8 @@ import {
   Trash2,
   Eye,
   EyeOff,
-  Tag
+  Tag,
+  Key
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -29,20 +30,23 @@ const AdminDashboard = () => {
   const [pendingClients, setPendingClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [showApiConfig, setShowApiConfig] = useState(false);
+  const [showEditUser, setShowEditUser] = useState(false);
   const [apiConfig, setApiConfig] = useState({});
   const [permissions, setPermissions] = useState({});
+  const [editUserData, setEditUserData] = useState({ name: '', email: '', status: 'active' });
   const [leadTypes, setLeadTypes] = useState([]);
+  const [showDeleted, setShowDeleted] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchClients();
     fetchPendingClients();
     fetchLeadTypes();
-  }, []);
+  }, [showDeleted]);
 
   const fetchClients = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/admin/users');
+      const response = await axios.get(`http://localhost:5000/api/admin/users?showDeleted=${showDeleted}`);
       setClients(response.data.users);
     } catch (error) {
       console.error('Failed to fetch clients:', error);
@@ -167,6 +171,40 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleEditUser = (client) => {
+    setSelectedClient(client);
+    setEditUserData({
+      name: client.name,
+      email: client.email,
+      status: client.status
+    });
+    setShowEditUser(true);
+  };
+
+  const handleSaveUser = async () => {
+    try {
+      await axios.put(`http://localhost:5000/api/admin/users/${selectedClient.id}`, editUserData);
+      fetchClients();
+      setShowEditUser(false);
+      setSelectedClient(null);
+      alert('User updated successfully');
+    } catch (error) {
+      console.error('Failed to update user:', error);
+      alert(error.response?.data?.error || 'Failed to update user');
+    }
+  };
+
+  const handleRestoreUser = async (userId) => {
+    try {
+      await axios.post(`http://localhost:5000/api/admin/users/${userId}/restore`);
+      fetchClients();
+      alert('User restored successfully');
+    } catch (error) {
+      console.error('Failed to restore user:', error);
+      alert('Failed to restore user');
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -192,6 +230,13 @@ const AdminDashboard = () => {
             >
               <Tag size={18} />
               Statuses
+            </button>
+            <button
+              onClick={() => navigate('/admin/api-keys')}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            >
+              <Key size={18} />
+              API Keys
             </button>
             <span className="text-sm text-gray-600 dark:text-gray-400">Admin: {user?.name}</span>
             <button
@@ -296,8 +341,17 @@ const AdminDashboard = () => {
 
         {/* All Clients */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">All Clients</h2>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showDeleted}
+                onChange={(e) => setShowDeleted(e.target.checked)}
+                className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-600 dark:text-gray-400">Show Deleted</span>
+            </label>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -311,8 +365,13 @@ const AdminDashboard = () => {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {clients.map((client) => (
-                  <tr key={client.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{client.name}</td>
+                  <tr key={client.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${client.deleted_at ? 'bg-red-50 dark:bg-red-900/10' : ''}`}>
+                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                      {client.name}
+                      {client.deleted_at && (
+                        <span className="ml-2 text-xs text-red-600 dark:text-red-400">(Deleted)</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{client.email}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -324,37 +383,56 @@ const AdminDashboard = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => handleEditPermissions(client)}
-                          className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                        >
-                          <Edit size={14} />
-                          Permissions
-                        </button>
-                        <button
-                          onClick={() => handleApiConfig(client)}
-                          className="text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
-                        >
-                          <SettingsIcon size={14} />
-                          API
-                        </button>
-                        {client.status === 'active' && (
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {client.deleted_at ? (
                           <button
-                            onClick={() => handleSuspend(client.id)}
-                            className="text-yellow-600 dark:text-yellow-400 hover:underline flex items-center gap-1"
+                            onClick={() => handleRestoreUser(client.id)}
+                            className="text-green-600 dark:text-green-400 hover:underline flex items-center gap-1"
                           >
-                            <XCircle size={14} />
-                            Suspend
+                            <CheckCircle size={14} />
+                            Restore
                           </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleEditUser(client)}
+                              className="text-green-600 dark:text-green-400 hover:underline flex items-center gap-1"
+                            >
+                              <Edit size={14} />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleEditPermissions(client)}
+                              className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                            >
+                              <Edit size={14} />
+                              Permissions
+                            </button>
+                            <button
+                              onClick={() => handleApiConfig(client)}
+                              className="text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
+                            >
+                              <SettingsIcon size={14} />
+                              API
+                            </button>
+                            {client.status === 'active' && (
+                              <button
+                                onClick={() => handleSuspend(client.id)}
+                                className="text-yellow-600 dark:text-yellow-400 hover:underline flex items-center gap-1"
+                              >
+                                <XCircle size={14} />
+                                Suspend
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDelete(client.id)}
+                              className="text-red-600 dark:text-red-400 hover:underline flex items-center gap-1"
+                            >
+                              <Trash2 size={14} />
+                              Delete
+                            </button>
+                          </>
                         )}
-                        <button
-                          onClick={() => handleDelete(client.id)}
-                          className="text-red-600 dark:text-red-400 hover:underline flex items-center gap-1"
-                        >
-                          <Trash2 size={14} />
-                          Delete
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -366,7 +444,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Permissions Modal */}
-      {selectedClient && !showApiConfig && (
+      {selectedClient && !showApiConfig && !showEditUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setSelectedClient(null)}>
           <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full p-6 my-8" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
@@ -556,6 +634,72 @@ const AdminDashboard = () => {
               <button
                 onClick={() => {
                   setShowApiConfig(false);
+                  setSelectedClient(null);
+                }}
+                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditUser && selectedClient && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditUser(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              Edit User: {selectedClient.name}
+            </h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={editUserData.name}
+                  onChange={(e) => setEditUserData({ ...editUserData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editUserData.email}
+                  onChange={(e) => setEditUserData({ ...editUserData, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Status
+                </label>
+                <select
+                  value={editUserData.status}
+                  onChange={(e) => setEditUserData({ ...editUserData, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleSaveUser}
+                className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                Save Changes
+              </button>
+              <button
+                onClick={() => {
+                  setShowEditUser(false);
                   setSelectedClient(null);
                 }}
                 className="px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded-lg"

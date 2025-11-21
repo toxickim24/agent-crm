@@ -12,6 +12,7 @@ import Register from './pages/auth/Register';
 import AdminDashboard from './pages/admin/Dashboard';
 import LeadTypes from './pages/admin/LeadTypes';
 import Statuses from './pages/admin/Statuses';
+import ApiKeys from './pages/admin/ApiKeys';
 
 // Client pages
 import ClientDashboard from './pages/client/Dashboard';
@@ -55,6 +56,14 @@ function App() {
               element={
                 <ProtectedRoute requireAdmin={true}>
                   <Statuses />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/api-keys"
+              element={
+                <ProtectedRoute requireAdmin={true}>
+                  <ApiKeys />
                 </ProtectedRoute>
               }
             />

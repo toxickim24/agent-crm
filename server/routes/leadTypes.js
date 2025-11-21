@@ -7,9 +7,15 @@ const router = express.Router();
 // Get all lead types
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const [leadTypes] = await pool.query(
-      'SELECT * FROM lead_types ORDER BY name ASC'
-    );
+    const showDeleted = req.query.showDeleted === 'true';
+
+    let query = 'SELECT * FROM lead_types';
+    if (!showDeleted) {
+      query += ' WHERE deleted_at IS NULL';
+    }
+    query += ' ORDER BY name ASC';
+
+    const [leadTypes] = await pool.query(query);
     res.json(leadTypes);
   } catch (error) {
     console.error('Get lead types error:', error);
@@ -98,18 +104,56 @@ router.put('/:id', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-// Delete lead type (admin only)
+// Soft delete lead type (admin only)
 router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      'UPDATE lead_types SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL',
+      [req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Lead type not found' });
+    }
+
+    res.json({ message: 'Lead type deleted successfully' });
+  } catch (error) {
+    console.error('Delete lead type error:', error);
+    res.status(500).json({ error: 'Failed to delete lead type' });
+  }
+});
+
+// Restore deleted lead type (admin only)
+router.post('/:id/restore', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      'UPDATE lead_types SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL',
+      [req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Deleted lead type not found' });
+    }
+
+    res.json({ message: 'Lead type restored successfully' });
+  } catch (error) {
+    console.error('Restore lead type error:', error);
+    res.status(500).json({ error: 'Failed to restore lead type' });
+  }
+});
+
+// Permanent delete lead type (admin only)
+router.delete('/:id/permanent', authenticateToken, isAdmin, async (req, res) => {
   try {
     // Check if lead type is in use
     const [contacts] = await pool.query(
-      'SELECT COUNT(*) as count FROM contacts WHERE lead_type = ?',
+      'SELECT COUNT(*) as count FROM contacts WHERE lead_type = ? AND deleted_at IS NULL',
       [req.params.id]
     );
 
     if (contacts[0].count > 0) {
       return res.status(400).json({
-        error: `Cannot delete lead type. It is currently assigned to ${contacts[0].count} contact(s).`
+        error: `Cannot permanently delete lead type. It is currently assigned to ${contacts[0].count} contact(s).`
       });
     }
 
@@ -122,10 +166,10 @@ router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Lead type not found' });
     }
 
-    res.json({ message: 'Lead type deleted successfully' });
+    res.json({ message: 'Lead type permanently deleted' });
   } catch (error) {
-    console.error('Delete lead type error:', error);
-    res.status(500).json({ error: 'Failed to delete lead type' });
+    console.error('Permanent delete lead type error:', error);
+    res.status(500).json({ error: 'Failed to permanently delete lead type' });
   }
 });
 
