@@ -127,6 +127,29 @@ const initDB = async () => {
         ('Home', '#EF4444')
     `);
 
+    // Statuses table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS statuses (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        color VARCHAR(7) DEFAULT '#3B82F6',
+        deleted_at TIMESTAMP NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_name (name)
+      )
+    `);
+
+    // Insert default statuses
+    await connection.query(`
+      INSERT IGNORE INTO statuses (name, color) VALUES
+        ('New', '#3B82F6'),
+        ('Contacted', '#8B5CF6'),
+        ('Qualified', '#10B981'),
+        ('Negotiating', '#F59E0B'),
+        ('Closed', '#EF4444')
+    `);
+
     // Check if contacts table needs migration
     const [tableCheck] = await connection.query(`
       SELECT COLUMN_NAME
@@ -158,14 +181,18 @@ const initDB = async () => {
           property_type VARCHAR(100),
           sale_date DATE,
           contact_1_name VARCHAR(255),
+          contact_first_name VARCHAR(100),
+          contact_last_name VARCHAR(100),
           contact_1_phone1 VARCHAR(50),
           contact_1_email1 VARCHAR(191),
           lead_type INT,
-          status VARCHAR(50) DEFAULT 'new',
+          status_id INT DEFAULT 1,
+          deleted_at TIMESTAMP NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-          FOREIGN KEY (lead_type) REFERENCES lead_types(id) ON DELETE SET NULL
+          FOREIGN KEY (lead_type) REFERENCES lead_types(id) ON DELETE SET NULL,
+          FOREIGN KEY (status_id) REFERENCES statuses(id) ON DELETE SET NULL
         )
       `);
 
@@ -209,27 +236,31 @@ const initDB = async () => {
           property_type VARCHAR(100),
           sale_date DATE,
           contact_1_name VARCHAR(255),
+          contact_first_name VARCHAR(100),
+          contact_last_name VARCHAR(100),
           contact_1_phone1 VARCHAR(50),
           contact_1_email1 VARCHAR(191),
           lead_type INT,
-          status VARCHAR(50) DEFAULT 'new',
+          status_id INT DEFAULT 1,
+          deleted_at TIMESTAMP NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-          FOREIGN KEY (lead_type) REFERENCES lead_types(id) ON DELETE SET NULL
+          FOREIGN KEY (lead_type) REFERENCES lead_types(id) ON DELETE SET NULL,
+          FOREIGN KEY (status_id) REFERENCES statuses(id) ON DELETE SET NULL
         )
       `);
     }
 
-    // Create default admin user (email: admin@agentcrm.com, password: Admin123!)
-    const [rows] = await connection.query('SELECT id FROM users WHERE email = ?', ['admin@agentcrm.com']);
+    // Create default admin user (email: admin@labelsalesagents.com, password: Admin123!)
+    const [rows] = await connection.query('SELECT id FROM users WHERE email = ?', ['admin@labelsalesagents.com']);
 
     if (rows.length === 0) {
       const hashedPassword = bcrypt.hashSync('Admin123!', 10);
       const [result] = await connection.query(
         `INSERT INTO users (name, email, password, role, status)
          VALUES (?, ?, ?, ?, ?)`,
-        ['Admin User', 'admin@agentcrm.com', hashedPassword, 'admin', 'active']
+        ['Admin User', 'admin@labelsalesagents.com', hashedPassword, 'admin', 'active']
       );
 
       // Create default permissions for admin
@@ -239,7 +270,7 @@ const initDB = async () => {
         [result.insertId]
       );
 
-      console.log('✅ Default admin user created: admin@agentcrm.com / Admin123!');
+      console.log('✅ Default admin user created: admin@labelsalesagents.com / Admin123!');
     }
 
     connection.release();

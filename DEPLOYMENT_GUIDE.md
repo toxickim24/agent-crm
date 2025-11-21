@@ -137,7 +137,15 @@ sudo npm install -g pm2
 # Start the application
 cd /var/www/agent-crm
 pm2 start server/index.js --name "agent-crm"
+```
 
+**Note:** On first start, the server automatically creates:
+- All database tables (users, contacts, permissions, api_keys, lead_types, statuses, etc.)
+- Admin user: `admin@labelsalesagents.com` / `Admin123!`
+- Default lead types: Probate, Refi, Equity, Permit, Home
+- Default statuses: New, Contacted, Qualified, Negotiating, Closed
+
+```bash
 # Configure PM2 to start on boot
 pm2 startup
 pm2 save
@@ -239,17 +247,7 @@ sudo certbot renew --dry-run
 
 ---
 
-## 11. Initialize Database
-
-Run the seed script to create tables and initial admin user:
-```bash
-cd /var/www/agent-crm
-npm run seed
-```
-
----
-
-## 12. Verify Deployment
+## 11. Verify Deployment
 
 1. **Check server status:**
    ```bash
@@ -263,7 +261,7 @@ npm run seed
 
 3. **Test the application:**
    - Open `http://YOUR_DOMAIN_OR_IP` in browser
-   - Login with default admin: `admin@agentcrm.com` / `Admin123!`
+   - Login with default admin: `admin@labelsalesagents.com` / `Admin123!`
    - **IMPORTANT:** Change the admin password immediately!
 
 4. **Test webhook API:**

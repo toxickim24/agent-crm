@@ -48,5 +48,5 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📊 Admin credentials: admin@agentcrm.com / Admin123!`);
+  console.log(`📊 Admin credentials: admin@labelsalesagents.com / Admin123!`);
 });

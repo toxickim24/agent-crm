@@ -60,7 +60,7 @@ The server will:
 
 After the server starts, you can log in with:
 
-- **Email:** admin@agentcrm.com
+- **Email:** admin@labelsalesagents.com
 - **Password:** Admin123!
 
 ## Troubleshooting

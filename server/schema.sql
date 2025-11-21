@@ -61,12 +61,12 @@ CREATE TABLE IF NOT EXISTS contacts (
 );
 
 -- Default admin user
--- Email: admin@agentcrm.com
+-- Email: admin@labelsalesagents.com
 -- Password: Admin123! (hashed with bcrypt, salt rounds: 10)
 INSERT INTO users (name, email, password, role, status)
 VALUES (
   'Admin User',
-  'admin@agentcrm.com',
+  'admin@labelsalesagents.com',
   '$2a$10$YourHashedPasswordHere',
   'admin',
   'active'
