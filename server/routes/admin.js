@@ -40,6 +40,240 @@ router.get('/users', async (req, res) => {
   }
 });
 
+// Get all admin users
+router.get('/admins', async (req, res) => {
+  try {
+    const showDeleted = req.query.showDeleted === 'true';
+
+    let query = `
+      SELECT u.id, u.name, u.email, u.role, u.status, u.created_at, u.deleted_at
+      FROM users u
+      WHERE u.role = 'admin'`;
+
+    if (!showDeleted) {
+      query += ` AND u.deleted_at IS NULL`;
+    }
+
+    query += ` ORDER BY u.created_at DESC`;
+
+    const [admins] = await pool.query(query);
+
+    res.json({ admins });
+  } catch (error) {
+    console.error('Get admins error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Create admin user
+router.post('/admins', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required.' });
+    }
+
+    // Check if email already exists
+    const [existingUsers] = await pool.query(
+      'SELECT id FROM users WHERE email = ? AND deleted_at IS NULL',
+      [email]
+    );
+
+    if (existingUsers.length > 0) {
+      return res.status(400).json({ error: 'Email already exists.' });
+    }
+
+    // Hash password
+    const bcrypt = await import('bcryptjs');
+    const hashedPassword = bcrypt.hashSync(password, 10);
+
+    // Create admin user
+    const [result] = await pool.query(
+      `INSERT INTO users (name, email, password, role, status)
+       VALUES (?, ?, ?, 'admin', 'active')`,
+      [name, email, hashedPassword]
+    );
+
+    res.status(201).json({
+      message: 'Admin user created successfully.',
+      userId: result.insertId
+    });
+  } catch (error) {
+    console.error('Create admin error:', error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Email already exists.' });
+    }
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Update admin user
+router.put('/admins/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, status } = req.body;
+
+    if (!name || !email) {
+      return res.status(400).json({ error: 'Name and email are required.' });
+    }
+
+    // Check if email is already taken by another user
+    const [existingUsers] = await pool.query(
+      'SELECT id FROM users WHERE email = ? AND id != ? AND deleted_at IS NULL',
+      [email, id]
+    );
+
+    if (existingUsers.length > 0) {
+      return res.status(400).json({ error: 'Email already exists.' });
+    }
+
+    const [result] = await pool.query(
+      'UPDATE users SET name = ?, email = ?, status = ? WHERE id = ? AND role = ?',
+      [name, email, status || 'active', id, 'admin']
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Admin user not found.' });
+    }
+
+    res.json({ message: 'Admin user updated successfully.' });
+  } catch (error) {
+    console.error('Update admin error:', error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Email already exists.' });
+    }
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Soft delete admin user
+router.delete('/admins/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Prevent deleting yourself
+    if (parseInt(id) === req.user.id) {
+      return res.status(400).json({ error: 'You cannot delete your own account.' });
+    }
+
+    const [result] = await pool.query(
+      'UPDATE users SET deleted_at = NOW() WHERE id = ? AND role = ? AND deleted_at IS NULL',
+      [id, 'admin']
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Admin user not found.' });
+    }
+
+    res.json({ message: 'Admin user deleted successfully.' });
+  } catch (error) {
+    console.error('Delete admin error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Restore deleted admin user
+router.post('/admins/:id/restore', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [result] = await pool.query(
+      'UPDATE users SET deleted_at = NULL WHERE id = ? AND role = ? AND deleted_at IS NOT NULL',
+      [id, 'admin']
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Deleted admin user not found.' });
+    }
+
+    res.json({ message: 'Admin user restored successfully.' });
+  } catch (error) {
+    console.error('Restore admin error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Change admin password
+router.post('/admins/:id/change-password', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword) {
+      return res.status(400).json({ error: 'New password is required.' });
+    }
+
+    // Hash password
+    const bcrypt = await import('bcryptjs');
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+
+    const [result] = await pool.query(
+      'UPDATE users SET password = ? WHERE id = ? AND role = ?',
+      [hashedPassword, id, 'admin']
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Admin user not found.' });
+    }
+
+    res.json({ message: 'Password changed successfully.' });
+  } catch (error) {
+    console.error('Change admin password error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Create client user
+router.post('/users', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required.' });
+    }
+
+    // Check if email already exists
+    const [existingUsers] = await pool.query(
+      'SELECT id FROM users WHERE email = ? AND deleted_at IS NULL',
+      [email]
+    );
+
+    if (existingUsers.length > 0) {
+      return res.status(400).json({ error: 'Email already exists.' });
+    }
+
+    // Hash password
+    const bcrypt = await import('bcryptjs');
+    const hashedPassword = bcrypt.hashSync(password, 10);
+
+    // Create client user
+    const [result] = await pool.query(
+      `INSERT INTO users (name, email, password, role, status)
+       VALUES (?, ?, ?, 'client', 'active')`,
+      [name, email, hashedPassword]
+    );
+
+    // Create default permissions
+    await pool.query(
+      `INSERT INTO permissions (user_id, home, contacts, calls_texts, emails, mailers)
+       VALUES (?, 1, 1, 1, 1, 1)`,
+      [result.insertId]
+    );
+
+    res.status(201).json({
+      message: 'Client user created successfully.',
+      userId: result.insertId
+    });
+  } catch (error) {
+    console.error('Create client error:', error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Email already exists.' });
+    }
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
 // Get pending users
 router.get('/users/pending', async (req, res) => {
   try {

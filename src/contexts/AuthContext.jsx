@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { toast } from 'sonner';
 import API_BASE_URL from '../config/api';
 
 const AuthContext = createContext();
@@ -52,6 +53,7 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
+      toast.success('Login successful!', { duration: 1500 });
       return { success: true, user };
     } catch (error) {
       const message = error.response?.data?.error || 'Login failed. Please try again.';
@@ -81,6 +83,7 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setUser(null);
     delete axios.defaults.headers.common['Authorization'];
+    toast.success('Logged out successfully', { duration: 1500 });
   };
 
   const changePassword = async (currentPassword, newPassword) => {

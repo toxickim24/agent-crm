@@ -23,6 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .claude/
+nul
 
 # Database
 server/database.db

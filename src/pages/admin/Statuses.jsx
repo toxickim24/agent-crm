@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import Logo from '../../components/Logo';
@@ -14,11 +15,12 @@ import {
   Moon,
   Tag,
   ArrowLeft,
-  RotateCcw
+  RotateCcw,
+  Settings as SettingsIcon
 } from 'lucide-react';
 
 const Statuses = () => {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [statuses, setStatuses] = useState([]);
@@ -27,6 +29,11 @@ const Statuses = () => {
   const [showDeleted, setShowDeleted] = useState(false);
   const [editingStatus, setEditingStatus] = useState(null);
   const [formData, setFormData] = useState({ name: '', color: '#3B82F6' });
+  const [showSettings, setShowSettings] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [profileData, setProfileData] = useState({ name: '', email: '' });
+  const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
 
   useEffect(() => {
     fetchStatuses();
@@ -72,9 +79,10 @@ const Statuses = () => {
     try {
       await axios.delete(`${API_BASE_URL}/statuses/${id}`);
       fetchStatuses();
+      toast.success('Status deleted successfully');
     } catch (error) {
       console.error('Failed to delete status:', error);
-      alert(error.response?.data?.error || 'Failed to delete status');
+      toast.error(error.response?.data?.error || 'Failed to delete status');
     }
   };
 
@@ -82,10 +90,10 @@ const Statuses = () => {
     try {
       await axios.post(`${API_BASE_URL}/statuses/${id}/restore`);
       fetchStatuses();
-      alert('Status restored successfully');
+      toast.success('Status restored successfully');
     } catch (error) {
       console.error('Failed to restore status:', error);
-      alert(error.response?.data?.error || 'Failed to restore status');
+      toast.error(error.response?.data?.error || 'Failed to restore status');
     }
   };
 
@@ -93,6 +101,54 @@ const Statuses = () => {
     setEditingStatus(null);
     setFormData({ name: '', color: '#3B82F6' });
     setShowModal(true);
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const handleEditProfile = () => {
+    setProfileData({ name: user?.name || '', email: user?.email || '' });
+    setShowEditProfile(true);
+    setShowSettings(false);
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      await axios.put(`${API_BASE_URL}/auth/profile`, profileData);
+      setShowEditProfile(false);
+      toast.success('Profile updated successfully');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      toast.error(error.response?.data?.error || 'Failed to update profile');
+    }
+  };
+
+  const handleOpenChangePassword = () => {
+    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    setShowChangePassword(true);
+    setShowSettings(false);
+  };
+
+  const handleSavePassword = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    try {
+      await axios.post(`${API_BASE_URL}/auth/change-password`, {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+      setShowChangePassword(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      toast.success('Password changed successfully');
+    } catch (error) {
+      console.error('Failed to change password:', error);
+      toast.error(error.response?.data?.error || 'Failed to change password');
+    }
   };
 
   return (
@@ -115,13 +171,44 @@ const Statuses = () => {
             >
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </button>
-            <button
-              onClick={logout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-            >
-              <LogOut size={18} />
-              Logout
-            </button>
+
+            {/* Settings Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <SettingsIcon size={20} />
+              </button>
+
+              {showSettings && (
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
+                  <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                    <p className="font-medium text-gray-900 dark:text-white">{user?.name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{user?.email}</p>
+                  </div>
+                  <button
+                    onClick={handleEditProfile}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-white"
+                  >
+                    Edit Profile
+                  </button>
+                  <button
+                    onClick={handleOpenChangePassword}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-white"
+                  >
+                    Change Password
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+                  >
+                    <LogOut size={16} />
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -333,6 +420,129 @@ const Statuses = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {showEditProfile && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white'} rounded-lg p-6 w-full max-w-md`}>
+            <h2 className="text-xl font-bold mb-4">Edit Profile</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Name</label>
+                <input
+                  type="text"
+                  value={profileData.name}
+                  onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg ${
+                    theme === 'dark'
+                      ? 'bg-gray-700 border-gray-600 text-white'
+                      : 'bg-white border-gray-300'
+                  }`}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Email</label>
+                <input
+                  type="email"
+                  value={profileData.email}
+                  onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg ${
+                    theme === 'dark'
+                      ? 'bg-gray-700 border-gray-600 text-white'
+                      : 'bg-white border-gray-300'
+                  }`}
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowEditProfile(false)}
+                  className={`px-4 py-2 rounded-lg ${
+                    theme === 'dark'
+                      ? 'bg-gray-700 hover:bg-gray-600'
+                      : 'bg-gray-200 hover:bg-gray-300'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveProfile}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {showChangePassword && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white'} rounded-lg p-6 w-full max-w-md`}>
+            <h2 className="text-xl font-bold mb-4">Change Password</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Current Password</label>
+                <input
+                  type="password"
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg ${
+                    theme === 'dark'
+                      ? 'bg-gray-700 border-gray-600 text-white'
+                      : 'bg-white border-gray-300'
+                  }`}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">New Password</label>
+                <input
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg ${
+                    theme === 'dark'
+                      ? 'bg-gray-700 border-gray-600 text-white'
+                      : 'bg-white border-gray-300'
+                  }`}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg ${
+                    theme === 'dark'
+                      ? 'bg-gray-700 border-gray-600 text-white'
+                      : 'bg-white border-gray-300'
+                  }`}
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowChangePassword(false)}
+                  className={`px-4 py-2 rounded-lg ${
+                    theme === 'dark'
+                      ? 'bg-gray-700 hover:bg-gray-600'
+                      : 'bg-gray-200 hover:bg-gray-300'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSavePassword}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Change Password
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
@@ -81,6 +81,82 @@ const Contacts = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  // Drag scrolling for main table
+  const mainTableRef = useRef(null);
+  const [isMainDragging, setIsMainDragging] = useState(false);
+  const [mainStartX, setMainStartX] = useState(0);
+  const [mainScrollLeft, setMainScrollLeft] = useState(0);
+
+  // Drag scrolling for deleted table
+  const deletedTableRef = useRef(null);
+  const [isDeletedDragging, setIsDeletedDragging] = useState(false);
+  const [deletedStartX, setDeletedStartX] = useState(0);
+  const [deletedScrollLeft, setDeletedScrollLeft] = useState(0);
+
+  // Main table drag handlers
+  const handleMainMouseDown = (e) => {
+    if (!mainTableRef.current) return;
+    setIsMainDragging(true);
+    setMainStartX(e.pageX - mainTableRef.current.offsetLeft);
+    setMainScrollLeft(mainTableRef.current.scrollLeft);
+    mainTableRef.current.style.cursor = 'grabbing';
+    mainTableRef.current.style.userSelect = 'none';
+  };
+
+  const handleMainMouseUp = () => {
+    if (!mainTableRef.current) return;
+    setIsMainDragging(false);
+    mainTableRef.current.style.cursor = 'grab';
+    mainTableRef.current.style.userSelect = 'auto';
+  };
+
+  const handleMainMouseMove = (e) => {
+    if (!isMainDragging || !mainTableRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - mainTableRef.current.offsetLeft;
+    const walk = (x - mainStartX) * 2;
+    mainTableRef.current.scrollLeft = mainScrollLeft - walk;
+  };
+
+  const handleMainMouseLeave = () => {
+    if (!mainTableRef.current) return;
+    setIsMainDragging(false);
+    mainTableRef.current.style.cursor = 'grab';
+    mainTableRef.current.style.userSelect = 'auto';
+  };
+
+  // Deleted table drag handlers
+  const handleDeletedMouseDown = (e) => {
+    if (!deletedTableRef.current) return;
+    setIsDeletedDragging(true);
+    setDeletedStartX(e.pageX - deletedTableRef.current.offsetLeft);
+    setDeletedScrollLeft(deletedTableRef.current.scrollLeft);
+    deletedTableRef.current.style.cursor = 'grabbing';
+    deletedTableRef.current.style.userSelect = 'none';
+  };
+
+  const handleDeletedMouseUp = () => {
+    if (!deletedTableRef.current) return;
+    setIsDeletedDragging(false);
+    deletedTableRef.current.style.cursor = 'grab';
+    deletedTableRef.current.style.userSelect = 'auto';
+  };
+
+  const handleDeletedMouseMove = (e) => {
+    if (!isDeletedDragging || !deletedTableRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - deletedTableRef.current.offsetLeft;
+    const walk = (x - deletedStartX) * 2;
+    deletedTableRef.current.scrollLeft = deletedScrollLeft - walk;
+  };
+
+  const handleDeletedMouseLeave = () => {
+    if (!deletedTableRef.current) return;
+    setIsDeletedDragging(false);
+    deletedTableRef.current.style.cursor = 'grab';
+    deletedTableRef.current.style.userSelect = 'auto';
+  };
+
   useEffect(() => {
     fetchContacts();
     fetchLeadTypes();
@@ -106,8 +182,12 @@ const Contacts = () => {
     }
 
     setFilteredContacts(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
   }, [searchTerm, contacts, selectedLeadTypeFilter]);
+
+  // Reset to page 1 only when search or filter changes, not when contacts update
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedLeadTypeFilter]);
 
   // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -1587,7 +1667,14 @@ const Contacts = () => {
                 No deleted contacts
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div
+                ref={deletedTableRef}
+                className="overflow-x-auto cursor-grab active:cursor-grabbing"
+                onMouseDown={handleDeletedMouseDown}
+                onMouseUp={handleDeletedMouseUp}
+                onMouseMove={handleDeletedMouseMove}
+                onMouseLeave={handleDeletedMouseLeave}
+              >
                 <table className="w-full">
                   <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                     <tr>
@@ -1747,7 +1834,14 @@ const Contacts = () => {
 
       {/* Contacts Table */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
+        <div
+          ref={mainTableRef}
+          className="overflow-x-auto cursor-grab active:cursor-grabbing"
+          onMouseDown={handleMainMouseDown}
+          onMouseUp={handleMainMouseUp}
+          onMouseMove={handleMainMouseMove}
+          onMouseLeave={handleMainMouseLeave}
+        >
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
               <tr>

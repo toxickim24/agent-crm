@@ -21,8 +21,8 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'You must agree to the Terms of Use & Privacy Policy.' });
     }
 
-    // Check if user already exists
-    const [existingUsers] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
+    // Check if user already exists (only check non-deleted users)
+    const [existingUsers] = await pool.query('SELECT id FROM users WHERE email = ? AND deleted_at IS NULL', [email]);
     if (existingUsers.length > 0) {
       return res.status(400).json({ error: 'Email already registered.' });
     }
@@ -68,7 +68,7 @@ router.post('/login', async (req, res) => {
       `SELECT u.*, p.home, p.contacts, p.calls_texts, p.emails, p.mailers
        FROM users u
        LEFT JOIN permissions p ON u.id = p.user_id
-       WHERE u.email = ?`,
+       WHERE u.email = ? AND u.deleted_at IS NULL`,
       [email]
     );
 
@@ -129,7 +129,7 @@ router.get('/me', authenticateToken, async (req, res) => {
               p.contact_import, p.contact_export, p.allowed_lead_types
        FROM users u
        LEFT JOIN permissions p ON u.id = p.user_id
-       WHERE u.id = ?`,
+       WHERE u.id = ? AND u.deleted_at IS NULL`,
       [req.user.id]
     );
 
@@ -144,6 +144,45 @@ router.get('/me', authenticateToken, async (req, res) => {
   }
 });
 
+// Update profile (name and email)
+router.put('/profile', authenticateToken, async (req, res) => {
+  try {
+    const { name, email } = req.body;
+
+    if (!name || !email) {
+      return res.status(400).json({ error: 'Name and email are required.' });
+    }
+
+    // Check if email is already taken by another user
+    const [existingUsers] = await pool.query(
+      'SELECT id FROM users WHERE email = ? AND id != ? AND deleted_at IS NULL',
+      [email, req.user.id]
+    );
+
+    if (existingUsers.length > 0) {
+      return res.status(400).json({ error: 'Email already in use.' });
+    }
+
+    // Update user
+    const [result] = await pool.query(
+      'UPDATE users SET name = ?, email = ? WHERE id = ?',
+      [name, email, req.user.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    res.json({ message: 'Profile updated successfully.' });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Email already in use.' });
+    }
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
 // Change password
 router.post('/change-password', authenticateToken, async (req, res) => {
   try {
@@ -154,7 +193,7 @@ router.post('/change-password', authenticateToken, async (req, res) => {
     }
 
     // Get user
-    const [users] = await pool.query('SELECT password FROM users WHERE id = ?', [req.user.id]);
+    const [users] = await pool.query('SELECT password FROM users WHERE id = ? AND deleted_at IS NULL', [req.user.id]);
 
     if (users.length === 0) {
       return res.status(404).json({ error: 'User not found.' });

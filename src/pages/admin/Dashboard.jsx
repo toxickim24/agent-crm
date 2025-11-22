@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import Logo from '../../components/Logo';
@@ -38,12 +39,33 @@ const AdminDashboard = () => {
   const [leadTypes, setLeadTypes] = useState([]);
   const [showDeleted, setShowDeleted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [profileData, setProfileData] = useState({ name: '', email: '' });
+  const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+
+  // Admin users management
+  const [admins, setAdmins] = useState([]);
+  const [showDeletedAdmins, setShowDeletedAdmins] = useState(false);
+  const [showAddAdmin, setShowAddAdmin] = useState(false);
+  const [showEditAdmin, setShowEditAdmin] = useState(false);
+  const [showChangeAdminPassword, setShowChangeAdminPassword] = useState(false);
+  const [selectedAdmin, setSelectedAdmin] = useState(null);
+  const [addAdminData, setAddAdminData] = useState({ name: '', email: '', password: '' });
+  const [editAdminData, setEditAdminData] = useState({ name: '', email: '', status: 'active' });
+  const [adminPasswordData, setAdminPasswordData] = useState({ newPassword: '', confirmPassword: '' });
+
+  // Client creation
+  const [showAddClient, setShowAddClient] = useState(false);
+  const [addClientData, setAddClientData] = useState({ name: '', email: '', password: '' });
 
   useEffect(() => {
     fetchClients();
     fetchPendingClients();
     fetchLeadTypes();
-  }, [showDeleted]);
+    fetchAdmins();
+  }, [showDeleted, showDeletedAdmins]);
 
   const fetchClients = async () => {
     try {
@@ -102,9 +124,10 @@ const AdminDashboard = () => {
       await axios.delete(`${API_BASE_URL}/admin/users/${clientId}`);
       fetchClients();
       setSelectedClient(null);
+      toast.success('User deleted successfully');
     } catch (error) {
       console.error('Failed to delete client:', error);
-      alert('Failed to delete client');
+      toast.error('Failed to delete user');
     }
   };
 
@@ -199,16 +222,184 @@ const AdminDashboard = () => {
     try {
       await axios.post(`${API_BASE_URL}/admin/users/${userId}/restore`);
       fetchClients();
-      alert('User restored successfully');
+      toast.success('User restored successfully');
     } catch (error) {
       console.error('Failed to restore user:', error);
-      alert('Failed to restore user');
+      toast.error('Failed to restore user');
     }
   };
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleEditProfile = () => {
+    setProfileData({ name: user?.name || '', email: user?.email || '' });
+    setShowEditProfile(true);
+    setShowSettings(false);
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      await axios.put(`${API_BASE_URL}/auth/profile`, profileData);
+      setShowEditProfile(false);
+      toast.success('Profile updated successfully');
+      // Refresh user data
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      toast.error(error.response?.data?.error || 'Failed to update profile');
+    }
+  };
+
+  const handleOpenChangePassword = () => {
+    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    setShowChangePassword(true);
+    setShowSettings(false);
+  };
+
+  const handleSavePassword = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    try {
+      await axios.post(`${API_BASE_URL}/auth/change-password`, {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+      setShowChangePassword(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      toast.success('Password changed successfully');
+    } catch (error) {
+      console.error('Failed to change password:', error);
+      toast.error(error.response?.data?.error || 'Failed to change password');
+    }
+  };
+
+  // Admin users management functions
+  const fetchAdmins = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/admin/admins?showDeleted=${showDeletedAdmins}`);
+      setAdmins(response.data.admins);
+    } catch (error) {
+      console.error('Failed to fetch admins:', error);
+    }
+  };
+
+  const handleAddAdmin = async () => {
+    if (!addAdminData.name || !addAdminData.email || !addAdminData.password) {
+      toast.error('All fields are required');
+      return;
+    }
+
+    try {
+      await axios.post(`${API_BASE_URL}/admin/admins`, addAdminData);
+      fetchAdmins();
+      setShowAddAdmin(false);
+      setAddAdminData({ name: '', email: '', password: '' });
+      toast.success('Admin user created successfully');
+    } catch (error) {
+      console.error('Failed to create admin:', error);
+      toast.error(error.response?.data?.error || 'Failed to create admin user');
+    }
+  };
+
+  const handleEditAdminClick = (admin) => {
+    setSelectedAdmin(admin);
+    setEditAdminData({
+      name: admin.name,
+      email: admin.email,
+      status: admin.status
+    });
+    setShowEditAdmin(true);
+  };
+
+  const handleSaveAdmin = async () => {
+    try {
+      await axios.put(`${API_BASE_URL}/admin/admins/${selectedAdmin.id}`, editAdminData);
+      fetchAdmins();
+      setShowEditAdmin(false);
+      setSelectedAdmin(null);
+      toast.success('Admin user updated successfully');
+    } catch (error) {
+      console.error('Failed to update admin:', error);
+      toast.error(error.response?.data?.error || 'Failed to update admin user');
+    }
+  };
+
+  const handleDeleteAdmin = async (adminId) => {
+    if (!confirm('Are you sure you want to delete this admin user?')) return;
+    try {
+      await axios.delete(`${API_BASE_URL}/admin/admins/${adminId}`);
+      fetchAdmins();
+      toast.success('Admin user deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete admin:', error);
+      toast.error(error.response?.data?.error || 'Failed to delete admin user');
+    }
+  };
+
+  const handleRestoreAdmin = async (adminId) => {
+    try {
+      await axios.post(`${API_BASE_URL}/admin/admins/${adminId}/restore`);
+      fetchAdmins();
+      toast.success('Admin user restored successfully');
+    } catch (error) {
+      console.error('Failed to restore admin:', error);
+      toast.error('Failed to restore admin user');
+    }
+  };
+
+  const handleChangeAdminPasswordClick = (admin) => {
+    setSelectedAdmin(admin);
+    setAdminPasswordData({ newPassword: '', confirmPassword: '' });
+    setShowChangeAdminPassword(true);
+  };
+
+  const handleSaveAdminPassword = async () => {
+    if (adminPasswordData.newPassword !== adminPasswordData.confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
+    if (!adminPasswordData.newPassword) {
+      toast.error('Password is required');
+      return;
+    }
+
+    try {
+      await axios.post(`${API_BASE_URL}/admin/admins/${selectedAdmin.id}/change-password`, {
+        newPassword: adminPasswordData.newPassword
+      });
+      setShowChangeAdminPassword(false);
+      setSelectedAdmin(null);
+      setAdminPasswordData({ newPassword: '', confirmPassword: '' });
+      toast.success('Password changed successfully');
+    } catch (error) {
+      console.error('Failed to change admin password:', error);
+      toast.error(error.response?.data?.error || 'Failed to change password');
+    }
+  };
+
+  // Client creation function
+  const handleAddClient = async () => {
+    if (!addClientData.name || !addClientData.email || !addClientData.password) {
+      toast.error('All fields are required');
+      return;
+    }
+
+    try {
+      await axios.post(`${API_BASE_URL}/admin/users`, addClientData);
+      fetchClients();
+      setShowAddClient(false);
+      setAddClientData({ name: '', email: '', password: '' });
+      toast.success('Client user created successfully');
+    } catch (error) {
+      console.error('Failed to create client:', error);
+      toast.error(error.response?.data?.error || 'Failed to create client user');
+    }
   };
 
   return (
@@ -239,25 +430,63 @@ const AdminDashboard = () => {
               <Key size={18} />
               API Keys
             </button>
-            <span className="text-sm text-gray-600 dark:text-gray-400">Admin: {user?.name}</span>
             <button
               onClick={toggleTheme}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </button>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-            >
-              <LogOut size={18} />
-              Logout
-            </button>
+
+            {/* Settings Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <SettingsIcon size={20} />
+              </button>
+
+              {showSettings && (
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
+                  <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                    <p className="font-medium text-gray-900 dark:text-white">{user?.name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{user?.email}</p>
+                  </div>
+                  <button
+                    onClick={handleEditProfile}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-white"
+                  >
+                    Edit Profile
+                  </button>
+                  <button
+                    onClick={handleOpenChangePassword}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-white"
+                  >
+                    Change Password
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+                  >
+                    <LogOut size={16} />
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       <div className="p-6 max-w-7xl mx-auto space-y-6">
+        {/* Page Title and Description */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Admin Dashboard</h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Manage users, permissions, and system settings. Monitor client activity and configure integrations.
+          </p>
+        </div>
+
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
@@ -344,15 +573,24 @@ const AdminDashboard = () => {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">All Clients</h2>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showDeleted}
-                onChange={(e) => setShowDeleted(e.target.checked)}
-                className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-600 dark:text-gray-400">Show Deleted</span>
-            </label>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showDeleted}
+                  onChange={(e) => setShowDeleted(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400">Show Deleted</span>
+              </label>
+              <button
+                onClick={() => setShowAddClient(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                <Users size={18} />
+                Add Client
+              </button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -432,6 +670,113 @@ const AdminDashboard = () => {
                               <Trash2 size={14} />
                               Delete
                             </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Admin Users */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Admin Users</h2>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showDeletedAdmins}
+                  onChange={(e) => setShowDeletedAdmins(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400">Show Deleted</span>
+              </label>
+              <button
+                onClick={() => setShowAddAdmin(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                <Users size={18} />
+                Add Admin
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {admins.map((admin) => (
+                  <tr key={admin.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${admin.deleted_at ? 'bg-red-50 dark:bg-red-900/10' : ''}`}>
+                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                      {admin.name}
+                      {admin.deleted_at && (
+                        <span className="ml-2 text-xs text-red-600 dark:text-red-400">(Deleted)</span>
+                      )}
+                      {admin.id === user?.id && (
+                        <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">(You)</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{admin.email}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        admin.status === 'active'
+                          ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                          : 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                      }`}>
+                        {admin.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
+                      {new Date(admin.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {admin.deleted_at ? (
+                          <button
+                            onClick={() => handleRestoreAdmin(admin.id)}
+                            className="text-green-600 dark:text-green-400 hover:underline flex items-center gap-1"
+                          >
+                            <CheckCircle size={14} />
+                            Restore
+                          </button>
+                        ) : (
+                          <>
+                            {admin.id !== user?.id && (
+                              <>
+                                <button
+                                  onClick={() => handleEditAdminClick(admin)}
+                                  className="text-green-600 dark:text-green-400 hover:underline flex items-center gap-1"
+                                >
+                                  <Edit size={14} />
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleChangeAdminPasswordClick(admin)}
+                                  className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                                >
+                                  <Key size={14} />
+                                  Password
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteAdmin(admin.id)}
+                                  className="text-red-600 dark:text-red-400 hover:underline flex items-center gap-1"
+                                >
+                                  <Trash2 size={14} />
+                                  Delete
+                                </button>
+                              </>
+                            )}
                           </>
                         )}
                       </div>
@@ -702,6 +1047,359 @@ const AdminDashboard = () => {
                 onClick={() => {
                   setShowEditUser(false);
                   setSelectedClient(null);
+                }}
+                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {showEditProfile && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditProfile(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              Edit Profile
+            </h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={profileData.name}
+                  onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={profileData.email}
+                  onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleSaveProfile}
+                className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                Save Changes
+              </button>
+              <button
+                onClick={() => setShowEditProfile(false)}
+                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {showChangePassword && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowChangePassword(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              Change Password
+            </h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Current Password
+                </label>
+                <input
+                  type="password"
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleSavePassword}
+                className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                Change Password
+              </button>
+              <button
+                onClick={() => setShowChangePassword(false)}
+                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Admin Modal */}
+      {showAddAdmin && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddAdmin(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              Add Admin User
+            </h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={addAdminData.name}
+                  onChange={(e) => setAddAdminData({ ...addAdminData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={addAdminData.email}
+                  onChange={(e) => setAddAdminData({ ...addAdminData, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={addAdminData.password}
+                  onChange={(e) => setAddAdminData({ ...addAdminData, password: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleAddAdmin}
+                className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                Create Admin
+              </button>
+              <button
+                onClick={() => {
+                  setShowAddAdmin(false);
+                  setAddAdminData({ name: '', email: '', password: '' });
+                }}
+                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Admin Modal */}
+      {showEditAdmin && selectedAdmin && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditAdmin(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              Edit Admin: {selectedAdmin.name}
+            </h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={editAdminData.name}
+                  onChange={(e) => setEditAdminData({ ...editAdminData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editAdminData.email}
+                  onChange={(e) => setEditAdminData({ ...editAdminData, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Status
+                </label>
+                <select
+                  value={editAdminData.status}
+                  onChange={(e) => setEditAdminData({ ...editAdminData, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleSaveAdmin}
+                className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                Save Changes
+              </button>
+              <button
+                onClick={() => {
+                  setShowEditAdmin(false);
+                  setSelectedAdmin(null);
+                }}
+                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Admin Password Modal */}
+      {showChangeAdminPassword && selectedAdmin && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowChangeAdminPassword(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              Change Password: {selectedAdmin.name}
+            </h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={adminPasswordData.newPassword}
+                  onChange={(e) => setAdminPasswordData({ ...adminPasswordData, newPassword: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={adminPasswordData.confirmPassword}
+                  onChange={(e) => setAdminPasswordData({ ...adminPasswordData, confirmPassword: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleSaveAdminPassword}
+                className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                Change Password
+              </button>
+              <button
+                onClick={() => {
+                  setShowChangeAdminPassword(false);
+                  setSelectedAdmin(null);
+                  setAdminPasswordData({ newPassword: '', confirmPassword: '' });
+                }}
+                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Client Modal */}
+      {showAddClient && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddClient(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              Add Client User
+            </h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={addClientData.name}
+                  onChange={(e) => setAddClientData({ ...addClientData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={addClientData.email}
+                  onChange={(e) => setAddClientData({ ...addClientData, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={addClientData.password}
+                  onChange={(e) => setAddClientData({ ...addClientData, password: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleAddClient}
+                className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                Create Client
+              </button>
+              <button
+                onClick={() => {
+                  setShowAddClient(false);
+                  setAddClientData({ name: '', email: '', password: '' });
                 }}
                 className="px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded-lg"
               >
