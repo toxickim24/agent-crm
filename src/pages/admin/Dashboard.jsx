@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import Logo from '../../components/Logo';
+import API_BASE_URL from '../../config/api';
 import {
   Users,
   UserCheck,
@@ -46,7 +47,7 @@ const AdminDashboard = () => {
 
   const fetchClients = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/admin/users?showDeleted=${showDeleted}`);
+      const response = await axios.get(`${API_BASE_URL}/admin/users?showDeleted=${showDeleted}`);
       setClients(response.data.users);
     } catch (error) {
       console.error('Failed to fetch clients:', error);
@@ -57,7 +58,7 @@ const AdminDashboard = () => {
 
   const fetchPendingClients = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/admin/users/pending');
+      const response = await axios.get(`${API_BASE_URL}/admin/users/pending`);
       setPendingClients(response.data.users);
     } catch (error) {
       console.error('Failed to fetch pending clients:', error);
@@ -66,7 +67,7 @@ const AdminDashboard = () => {
 
   const fetchLeadTypes = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/lead-types');
+      const response = await axios.get(`${API_BASE_URL}/lead-types`);
       setLeadTypes(response.data);
     } catch (error) {
       console.error('Failed to fetch lead types:', error);
@@ -75,7 +76,7 @@ const AdminDashboard = () => {
 
   const handleApprove = async (clientId) => {
     try {
-      await axios.post(`http://localhost:5000/api/admin/users/${clientId}/approve`);
+      await axios.post(`${API_BASE_URL}/admin/users/${clientId}/approve`);
       fetchClients();
       fetchPendingClients();
     } catch (error) {
@@ -87,7 +88,7 @@ const AdminDashboard = () => {
   const handleSuspend = async (clientId) => {
     if (!confirm('Are you sure you want to suspend this user?')) return;
     try {
-      await axios.post(`http://localhost:5000/api/admin/users/${clientId}/suspend`);
+      await axios.post(`${API_BASE_URL}/admin/users/${clientId}/suspend`);
       fetchClients();
     } catch (error) {
       console.error('Failed to suspend client:', error);
@@ -98,7 +99,7 @@ const AdminDashboard = () => {
   const handleDelete = async (clientId) => {
     if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/admin/users/${clientId}`);
+      await axios.delete(`${API_BASE_URL}/admin/users/${clientId}`);
       fetchClients();
       setSelectedClient(null);
     } catch (error) {
@@ -138,7 +139,7 @@ const AdminDashboard = () => {
   const handleSavePermissions = async () => {
     try {
       console.log('Saving permissions:', permissions);
-      await axios.put(`http://localhost:5000/api/admin/users/${selectedClient.id}/permissions`, permissions);
+      await axios.put(`${API_BASE_URL}/admin/users/${selectedClient.id}/permissions`, permissions);
       fetchClients();
       setSelectedClient(null);
       alert('Permissions updated successfully');
@@ -152,7 +153,7 @@ const AdminDashboard = () => {
     setSelectedClient(client);
     setShowApiConfig(true);
     try {
-      const response = await axios.get(`http://localhost:5000/api/admin/users/${client.id}/api-config`);
+      const response = await axios.get(`${API_BASE_URL}/admin/users/${client.id}/api-config`);
       setApiConfig(response.data.config);
     } catch (error) {
       console.error('Failed to fetch API config:', error);
@@ -161,7 +162,7 @@ const AdminDashboard = () => {
 
   const handleSaveApiConfig = async () => {
     try {
-      await axios.put(`http://localhost:5000/api/admin/users/${selectedClient.id}/api-config`, apiConfig);
+      await axios.put(`${API_BASE_URL}/admin/users/${selectedClient.id}/api-config`, apiConfig);
       setShowApiConfig(false);
       setSelectedClient(null);
       alert('API configuration saved successfully');
@@ -183,7 +184,7 @@ const AdminDashboard = () => {
 
   const handleSaveUser = async () => {
     try {
-      await axios.put(`http://localhost:5000/api/admin/users/${selectedClient.id}`, editUserData);
+      await axios.put(`${API_BASE_URL}/admin/users/${selectedClient.id}`, editUserData);
       fetchClients();
       setShowEditUser(false);
       setSelectedClient(null);
@@ -196,7 +197,7 @@ const AdminDashboard = () => {
 
   const handleRestoreUser = async (userId) => {
     try {
-      await axios.post(`http://localhost:5000/api/admin/users/${userId}/restore`);
+      await axios.post(`${API_BASE_URL}/admin/users/${userId}/restore`);
       fetchClients();
       alert('User restored successfully');
     } catch (error) {

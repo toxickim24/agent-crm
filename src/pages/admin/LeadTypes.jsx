@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import Logo from '../../components/Logo';
+import API_BASE_URL from '../../config/api';
 import {
   Plus,
   Edit,
@@ -33,7 +34,7 @@ const LeadTypes = () => {
 
   const fetchLeadTypes = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/lead-types?showDeleted=${showDeleted}`);
+      const response = await axios.get(`${API_BASE_URL}/lead-types?showDeleted=${showDeleted}`);
       setLeadTypes(response.data);
     } catch (error) {
       console.error('Failed to fetch lead types:', error);
@@ -46,9 +47,9 @@ const LeadTypes = () => {
     e.preventDefault();
     try {
       if (editingLeadType) {
-        await axios.put(`http://localhost:5000/api/lead-types/${editingLeadType.id}`, formData);
+        await axios.put(`${API_BASE_URL}/lead-types/${editingLeadType.id}`, formData);
       } else {
-        await axios.post('http://localhost:5000/api/lead-types', formData);
+        await axios.post(`${API_BASE_URL}/lead-types`, formData);
       }
       fetchLeadTypes();
       setShowModal(false);
@@ -69,7 +70,7 @@ const LeadTypes = () => {
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this lead type?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/lead-types/${id}`);
+      await axios.delete(`${API_BASE_URL}/lead-types/${id}`);
       fetchLeadTypes();
     } catch (error) {
       console.error('Failed to delete lead type:', error);
@@ -79,7 +80,7 @@ const LeadTypes = () => {
 
   const handleRestore = async (id) => {
     try {
-      await axios.post(`http://localhost:5000/api/lead-types/${id}/restore`);
+      await axios.post(`${API_BASE_URL}/lead-types/${id}/restore`);
       fetchLeadTypes();
       alert('Lead type restored successfully');
     } catch (error) {

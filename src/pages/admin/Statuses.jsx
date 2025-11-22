@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import Logo from '../../components/Logo';
+import API_BASE_URL from '../../config/api';
 import {
   Plus,
   Edit,
@@ -33,7 +34,7 @@ const Statuses = () => {
 
   const fetchStatuses = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/statuses?showDeleted=${showDeleted}`);
+      const response = await axios.get(`${API_BASE_URL}/statuses?showDeleted=${showDeleted}`);
       setStatuses(response.data);
     } catch (error) {
       console.error('Failed to fetch statuses:', error);
@@ -46,9 +47,9 @@ const Statuses = () => {
     e.preventDefault();
     try {
       if (editingStatus) {
-        await axios.put(`http://localhost:5000/api/statuses/${editingStatus.id}`, formData);
+        await axios.put(`${API_BASE_URL}/statuses/${editingStatus.id}`, formData);
       } else {
-        await axios.post('http://localhost:5000/api/statuses', formData);
+        await axios.post(`${API_BASE_URL}/statuses`, formData);
       }
       fetchStatuses();
       setShowModal(false);
@@ -69,7 +70,7 @@ const Statuses = () => {
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this status?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/statuses/${id}`);
+      await axios.delete(`${API_BASE_URL}/statuses/${id}`);
       fetchStatuses();
     } catch (error) {
       console.error('Failed to delete status:', error);
@@ -79,7 +80,7 @@ const Statuses = () => {
 
   const handleRestore = async (id) => {
     try {
-      await axios.post(`http://localhost:5000/api/statuses/${id}/restore`);
+      await axios.post(`${API_BASE_URL}/statuses/${id}/restore`);
       fetchStatuses();
       alert('Status restored successfully');
     } catch (error) {

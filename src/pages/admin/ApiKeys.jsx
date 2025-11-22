@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import Logo from '../../components/Logo';
+import API_BASE_URL from '../../config/api';
 import {
   ArrowLeft,
   Key,
@@ -49,7 +50,7 @@ const ApiKeys = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/admin/users');
+      const response = await axios.get(`${API_BASE_URL}/admin/users`);
       setUsers(response.data.users);
       if (response.data.users.length > 0) {
         setSelectedUser(response.data.users[0]);
@@ -65,7 +66,7 @@ const ApiKeys = () => {
   const fetchApiKeys = async (userId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:5000/api/admin/apikeyslist/${userId}?showDeleted=${showDeleted}`, {
+      const response = await axios.get(`${API_BASE_URL}/admin/apikeyslist/${userId}?showDeleted=${showDeleted}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -92,7 +93,7 @@ const ApiKeys = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `http://localhost:5000/api/admin/apikeyslist/${selectedUser.id}`,
+        `${API_BASE_URL}/admin/apikeyslist/${selectedUser.id}`,
         { name: newKeyName },
         {
           headers: {
@@ -120,7 +121,7 @@ const ApiKeys = () => {
     try {
       const token = localStorage.getItem('token');
       await axios.patch(
-        `http://localhost:5000/api/admin/apikeyslist/${selectedUser.id}/${keyId}/toggle`,
+        `${API_BASE_URL}/admin/apikeyslist/${selectedUser.id}/${keyId}/toggle`,
         {},
         {
           headers: {
@@ -145,7 +146,7 @@ const ApiKeys = () => {
     try {
       const token = localStorage.getItem('token');
       await axios.delete(
-        `http://localhost:5000/api/admin/apikeyslist/${selectedUser.id}/${keyId}`,
+        `${API_BASE_URL}/admin/apikeyslist/${selectedUser.id}/${keyId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -165,7 +166,7 @@ const ApiKeys = () => {
     try {
       const token = localStorage.getItem('token');
       await axios.post(
-        `http://localhost:5000/api/admin/apikeyslist/${selectedUser.id}/${keyId}/restore`,
+        `${API_BASE_URL}/admin/apikeyslist/${selectedUser.id}/${keyId}/restore`,
         {},
         {
           headers: {

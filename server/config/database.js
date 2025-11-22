@@ -150,25 +150,19 @@ const initDB = async () => {
         ('Closed', '#EF4444')
     `);
 
-    // Check if contacts table needs migration
-    const [tableCheck] = await connection.query(`
-      SELECT COLUMN_NAME
-      FROM INFORMATION_SCHEMA.COLUMNS
+    // First check if contacts table exists at all
+    const [tableExists] = await connection.query(`
+      SELECT COUNT(*) as count
+      FROM INFORMATION_SCHEMA.TABLES
       WHERE TABLE_SCHEMA = DATABASE()
       AND TABLE_NAME = 'contacts'
-      AND COLUMN_NAME = 'property_address_full'
     `);
 
-    if (tableCheck.length === 0) {
-      // Old contacts table exists, need to migrate
-      console.log('📋 Migrating contacts table to new schema...');
-
-      // Rename old table
-      await connection.query(`RENAME TABLE contacts TO contacts_old`);
-
-      // Create new contacts table
+    if (tableExists[0].count === 0) {
+      // Table doesn't exist, create it fresh
+      console.log('📋 Creating contacts table...');
       await connection.query(`
-        CREATE TABLE IF NOT EXISTS contacts (
+        CREATE TABLE contacts (
           id INT AUTO_INCREMENT PRIMARY KEY,
           user_id INT NOT NULL,
           lead_id VARCHAR(100),
@@ -195,61 +189,79 @@ const initDB = async () => {
           FOREIGN KEY (status_id) REFERENCES statuses(id) ON DELETE SET NULL
         )
       `);
-
-      // Migrate old data
-      await connection.query(`
-        INSERT INTO contacts (
-          id, user_id, contact_1_name, contact_1_email1, contact_1_phone1,
-          lead_type, status, created_at, updated_at
-        )
-        SELECT
-          c.id,
-          c.user_id,
-          CONCAT(c.first_name, ' ', c.last_name),
-          c.email,
-          c.phone,
-          lt.id,
-          c.status,
-          c.created_at,
-          c.updated_at
-        FROM contacts_old c
-        LEFT JOIN lead_types lt ON c.lead_type = lt.name
-      `);
-
-      // Drop old table
-      await connection.query(`DROP TABLE contacts_old`);
-
-      console.log('✅ Contacts table migrated successfully');
+      console.log('✅ Contacts table created successfully');
     } else {
-      // Table already migrated, just ensure it exists with correct schema
-      await connection.query(`
-        CREATE TABLE IF NOT EXISTS contacts (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          user_id INT NOT NULL,
-          lead_id VARCHAR(100),
-          property_address_full VARCHAR(500),
-          property_address_city VARCHAR(100),
-          property_address_state VARCHAR(50),
-          property_address_zipcode VARCHAR(20),
-          property_address_county VARCHAR(100),
-          estimated_value DECIMAL(15, 2),
-          property_type VARCHAR(100),
-          sale_date DATE,
-          contact_1_name VARCHAR(255),
-          contact_first_name VARCHAR(100),
-          contact_last_name VARCHAR(100),
-          contact_1_phone1 VARCHAR(50),
-          contact_1_email1 VARCHAR(191),
-          lead_type INT,
-          status_id INT DEFAULT 1,
-          deleted_at TIMESTAMP NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-          FOREIGN KEY (lead_type) REFERENCES lead_types(id) ON DELETE SET NULL,
-          FOREIGN KEY (status_id) REFERENCES statuses(id) ON DELETE SET NULL
-        )
+      // Table exists, check if it needs migration
+      const [tableCheck] = await connection.query(`
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'contacts'
+        AND COLUMN_NAME = 'property_address_full'
       `);
+
+      if (tableCheck.length === 0) {
+        // Old contacts table exists, need to migrate
+        console.log('📋 Migrating contacts table to new schema...');
+
+        // Rename old table
+        await connection.query(`RENAME TABLE contacts TO contacts_old`);
+
+        // Create new contacts table
+        await connection.query(`
+          CREATE TABLE contacts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            lead_id VARCHAR(100),
+            property_address_full VARCHAR(500),
+            property_address_city VARCHAR(100),
+            property_address_state VARCHAR(50),
+            property_address_zipcode VARCHAR(20),
+            property_address_county VARCHAR(100),
+            estimated_value DECIMAL(15, 2),
+            property_type VARCHAR(100),
+            sale_date DATE,
+            contact_1_name VARCHAR(255),
+            contact_first_name VARCHAR(100),
+            contact_last_name VARCHAR(100),
+            contact_1_phone1 VARCHAR(50),
+            contact_1_email1 VARCHAR(191),
+            lead_type INT,
+            status_id INT DEFAULT 1,
+            deleted_at TIMESTAMP NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (lead_type) REFERENCES lead_types(id) ON DELETE SET NULL,
+            FOREIGN KEY (status_id) REFERENCES statuses(id) ON DELETE SET NULL
+          )
+        `);
+
+        // Migrate old data
+        await connection.query(`
+          INSERT INTO contacts (
+            id, user_id, contact_1_name, contact_1_email1, contact_1_phone1,
+            lead_type, status_id, created_at, updated_at
+          )
+          SELECT
+            c.id,
+            c.user_id,
+            CONCAT(c.first_name, ' ', c.last_name),
+            c.email,
+            c.phone,
+            lt.id,
+            1,
+            c.created_at,
+            c.updated_at
+          FROM contacts_old c
+          LEFT JOIN lead_types lt ON c.lead_type = lt.name
+        `);
+
+        // Drop old table
+        await connection.query(`DROP TABLE contacts_old`);
+
+        console.log('✅ Contacts table migrated successfully');
+      }
     }
 
     // Create default admin user (email: admin@labelsalesagents.com, password: Admin123!)

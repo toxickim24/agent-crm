@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import API_BASE_URL from '../config/api';
 
 const AuthContext = createContext();
 
@@ -28,7 +29,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUser = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/auth/me');
+      const response = await axios.get(`${API_BASE_URL}/auth/me`);
       setUser(response.data.user);
     } catch (error) {
       console.error('Failed to fetch user:', error);
@@ -40,7 +41,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
+      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
         email,
         password
       });
@@ -60,7 +61,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (name, email, password, productUpdates, agreeToTerms) => {
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/register', {
+      const response = await axios.post(`${API_BASE_URL}/auth/register`, {
         name,
         email,
         password,
@@ -84,7 +85,7 @@ export const AuthProvider = ({ children }) => {
 
   const changePassword = async (currentPassword, newPassword) => {
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/change-password', {
+      const response = await axios.post(`${API_BASE_URL}/auth/change-password`, {
         currentPassword,
         newPassword
       });

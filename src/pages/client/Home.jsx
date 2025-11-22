@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Users, UserPlus, Phone, MessageSquare, Mail, Send, MousePointer, Eye, DollarSign } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import API_BASE_URL from '../../config/api';
 
 const Home = () => {
   const [contacts, setContacts] = useState([]);
@@ -15,8 +16,8 @@ const Home = () => {
   const fetchData = async () => {
     try {
       const [contactsRes, leadTypesRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/contacts'),
-        axios.get('http://localhost:5000/api/lead-types')
+        axios.get(`${API_BASE_URL}/contacts`),
+        axios.get(`${API_BASE_URL}/lead-types`)
       ]);
       setContacts(contactsRes.data.contacts);
       setLeadTypes(leadTypesRes.data);

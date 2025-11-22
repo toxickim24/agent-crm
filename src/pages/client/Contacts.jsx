@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
+import API_BASE_URL from '../../config/api';
 import {
   Search,
   Plus,
@@ -118,7 +119,7 @@ const Contacts = () => {
 
   const fetchContacts = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/contacts');
+      const response = await axios.get(`${API_BASE_URL}/contacts`);
       setContacts(response.data.contacts);
       setFilteredContacts(response.data.contacts);
       setSelectedIds([]); // Clear selection when refreshing
@@ -131,7 +132,7 @@ const Contacts = () => {
 
   const fetchDeletedContacts = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/contacts?showDeleted=true');
+      const response = await axios.get(`${API_BASE_URL}/contacts?showDeleted=true`);
       const deleted = response.data.contacts.filter(c => c.deleted_at);
       setDeletedContacts(deleted);
       setSelectedDeletedIds([]);
@@ -142,7 +143,7 @@ const Contacts = () => {
 
   const fetchLeadTypes = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/lead-types');
+      const response = await axios.get(`${API_BASE_URL}/lead-types`);
       setLeadTypes(response.data);
     } catch (error) {
       console.error('Failed to fetch lead types:', error);
@@ -152,7 +153,7 @@ const Contacts = () => {
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this contact?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/contacts/${id}`);
+      await axios.delete(`${API_BASE_URL}/contacts/${id}`);
       fetchContacts();
       setSelectedContact(null);
       toast.success('Contact deleted successfully!');
@@ -169,7 +170,7 @@ const Contacts = () => {
 
   const handleRestore = async (id) => {
     try {
-      await axios.post(`http://localhost:5000/api/contacts/${id}/restore`);
+      await axios.post(`${API_BASE_URL}/contacts/${id}/restore`);
       fetchContacts();
       fetchDeletedContacts();
       setSelectedContact(null);
@@ -184,7 +185,7 @@ const Contacts = () => {
     if (selectedIds.length === 0) return;
     if (!confirm(`Are you sure you want to delete ${selectedIds.length} contact(s)?`)) return;
     try {
-      await axios.post('http://localhost:5000/api/contacts/bulk-delete', { ids: selectedIds });
+      await axios.post(`${API_BASE_URL}/contacts/bulk-delete`, { ids: selectedIds });
       fetchContacts();
       toast.success(`Successfully deleted ${selectedIds.length} contact(s)`);
     } catch (error) {
@@ -260,7 +261,7 @@ const Contacts = () => {
   const handlePermanentDelete = async (id) => {
     if (!confirm('Are you sure you want to permanently delete this contact? This action cannot be undone.')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/contacts/${id}/permanent`);
+      await axios.delete(`${API_BASE_URL}/contacts/${id}/permanent`);
       fetchDeletedContacts();
       toast.success('Contact permanently deleted');
     } catch (error) {
@@ -274,7 +275,7 @@ const Contacts = () => {
     if (!confirm(`Are you sure you want to permanently delete ${selectedDeletedIds.length} contact(s)? This action cannot be undone.`)) return;
     try {
       const promises = selectedDeletedIds.map(id =>
-        axios.delete(`http://localhost:5000/api/contacts/${id}/permanent`)
+        axios.delete(`${API_BASE_URL}/contacts/${id}/permanent`)
       );
       await Promise.all(promises);
       fetchDeletedContacts();
@@ -290,7 +291,7 @@ const Contacts = () => {
     if (!confirm(`Are you sure you want to permanently delete all ${deletedContacts.length} deleted contact(s)? This action cannot be undone.`)) return;
     try {
       const promises = deletedContacts.map(contact =>
-        axios.delete(`http://localhost:5000/api/contacts/${contact.id}/permanent`)
+        axios.delete(`${API_BASE_URL}/contacts/${contact.id}/permanent`)
       );
       await Promise.all(promises);
       fetchDeletedContacts();
@@ -456,7 +457,7 @@ const Contacts = () => {
     useEffect(() => {
       const fetchStatuses = async () => {
         try {
-          const response = await axios.get('http://localhost:5000/api/statuses');
+          const response = await axios.get(`${API_BASE_URL}/statuses`);
           setStatuses(response.data);
           // Set default status_id to "New" if available
           const newStatus = response.data.find(s => s.name.toLowerCase() === 'new');
@@ -490,7 +491,7 @@ const Contacts = () => {
     const handleSubmit = async (e) => {
       e.preventDefault();
       try {
-        await axios.post('http://localhost:5000/api/contacts', formData);
+        await axios.post(`${API_BASE_URL}/contacts`, formData);
         onSuccess();
         toast.success('Contact created successfully!');
         onClose();
@@ -697,7 +698,7 @@ const Contacts = () => {
     useEffect(() => {
       const fetchStatuses = async () => {
         try {
-          const response = await axios.get('http://localhost:5000/api/statuses');
+          const response = await axios.get(`${API_BASE_URL}/statuses`);
           setStatuses(response.data);
         } catch (error) {
           console.error('Failed to fetch statuses:', error);
@@ -734,7 +735,7 @@ const Contacts = () => {
     const handleSubmit = async (e) => {
       e.preventDefault();
       try {
-        await axios.put(`http://localhost:5000/api/contacts/${contact.id}`, formData);
+        await axios.put(`${API_BASE_URL}/contacts/${contact.id}`, formData);
         toast.success('Contact updated successfully!');
         onSuccess();
         onClose();
@@ -1116,7 +1117,7 @@ const Contacts = () => {
           // Get existing lead_id + lead_type combinations to check for duplicates
           const existingCombinations = new Set();
           try {
-            const response = await axios.get('http://localhost:5000/api/contacts');
+            const response = await axios.get(`${API_BASE_URL}/contacts`);
             response.data.contacts.forEach(c => {
               if (c.lead_id && c.lead_type) {
                 existingCombinations.add(`${c.lead_id}:${c.lead_type}`);
@@ -1200,7 +1201,7 @@ const Contacts = () => {
           let importedCount = 0;
           if (contactsToImport.length > 0) {
             try {
-              await axios.post('http://localhost:5000/api/contacts/import', {
+              await axios.post(`${API_BASE_URL}/contacts/import`, {
                 contacts: contactsToImport
               });
               importedCount = contactsToImport.length;
