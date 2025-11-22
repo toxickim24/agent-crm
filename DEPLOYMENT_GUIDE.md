@@ -109,7 +109,7 @@ NODE_ENV=production
 # Database
 DB_HOST=localhost
 DB_USER=agentcrm_user
-DB_PASSWORD=TheLabel99??
+DB_PASSWORD=Thelabel99??
 DB_NAME=agent_crm
 
 # JWT Secret (generate a strong random string)
@@ -412,6 +412,208 @@ npm run build
 
 # Restart server
 pm2 restart agent-crm
+```
+
+---
+
+## Optional: Install phpMyAdmin (Secure Online Access)
+
+If you want a web interface to manage your MySQL database, follow these steps to install phpMyAdmin securely.
+
+### Step 1: Install phpMyAdmin and PHP
+
+```bash
+# Install Apache (required for phpMyAdmin)
+sudo apt install -y apache2
+
+# Install PHP and required extensions
+sudo apt install -y php php-mbstring php-zip php-gd php-json php-curl php-mysql libapache2-mod-php
+
+# Install phpMyAdmin
+sudo apt install -y phpmyadmin
+
+# During installation:
+# - Web server: Select "apache2" (use spacebar to select)
+# - Configure database with dbconfig-common: Yes
+# - Enter a password for phpMyAdmin database user
+```
+
+### Step 2: Create Secure Access URL
+
+For security, we'll use a custom URL instead of `/phpmyadmin`:
+
+```bash
+# Create a symbolic link with a custom name
+sudo ln -s /usr/share/phpmyadmin /var/www/html/secure-db-2024
+
+# The URL will be: https://yourdomain.com/secure-db-2024
+# Change "secure-db-2024" to something unique and hard to guess
+```
+
+### Step 3: Configure Apache
+
+```bash
+# Enable Apache to run on a different port (8080) since Nginx uses 80
+sudo nano /etc/apache2/ports.conf
+```
+
+Change:
+```apache
+Listen 80
+```
+
+To:
+```apache
+Listen 127.0.0.1:8080
+```
+
+Save and exit.
+
+Then edit the default site:
+```bash
+sudo nano /etc/apache2/sites-available/000-default.conf
+```
+
+Change:
+```apache
+<VirtualHost *:80>
+```
+
+To:
+```apache
+<VirtualHost 127.0.0.1:8080>
+```
+
+Save and exit.
+
+### Step 4: Create HTTP Basic Authentication
+
+Add an extra security layer with password protection:
+
+```bash
+# Create password file
+sudo htpasswd -c /etc/apache2/.htpasswd dbadmin
+
+# Enter a strong password when prompted
+# Username: dbadmin (you can change this)
+```
+
+Create Apache configuration for phpMyAdmin:
+```bash
+sudo nano /etc/apache2/conf-available/phpmyadmin.conf
+```
+
+Add:
+```apache
+<Directory /usr/share/phpmyadmin>
+    AuthType Basic
+    AuthName "Database Administration"
+    AuthUserFile /etc/apache2/.htpasswd
+    Require valid-user
+</Directory>
+```
+
+Enable the configuration:
+```bash
+sudo a2enconf phpmyadmin
+sudo systemctl restart apache2
+```
+
+### Step 5: Configure Nginx as Reverse Proxy
+
+Update your Nginx configuration:
+```bash
+sudo nano /etc/nginx/sites-available/agent-crm
+```
+
+Add this location block inside your server block (after the /api location):
+```nginx
+    # phpMyAdmin access (change URL to match your custom name)
+    location /secure-db-2024 {
+        proxy_pass http://127.0.0.1:8080/secure-db-2024;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Optional: Restrict by IP address
+        # allow 123.45.67.89;  # Your office/home IP
+        # deny all;
+    }
+```
+
+Test and restart Nginx:
+```bash
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+### Step 6: Configure phpMyAdmin for Remote Access
+
+```bash
+sudo nano /etc/phpmyadmin/config.inc.php
+```
+
+Find and update these lines:
+```php
+$cfg['Servers'][$i]['host'] = 'localhost';
+$cfg['Servers'][$i]['AllowNoPassword'] = false;
+```
+
+### Step 7: Restart Services
+
+```bash
+sudo systemctl restart apache2
+sudo systemctl restart nginx
+```
+
+### Step 8: Access phpMyAdmin
+
+1. Open your browser and go to: `https://yourdomain.com/secure-db-2024`
+2. Enter HTTP Basic Auth credentials (username: `dbadmin`, password: what you set)
+3. Then login with MySQL credentials:
+   - **Username**: `agentcrm_user`
+   - **Password**: `Thelabel99??` (from your .env file)
+   - **Server**: Leave blank (uses localhost)
+
+### Security Checklist for phpMyAdmin
+
+- [x] Custom URL (not `/phpmyadmin`)
+- [x] HTTP Basic Authentication enabled
+- [x] Apache only listens on localhost (not exposed directly)
+- [x] Proxied through Nginx with HTTPS
+- [ ] Optional: IP whitelist (uncomment the allow/deny lines in Nginx)
+- [ ] Change default MySQL credentials if concerned
+- [ ] Monitor access logs: `sudo tail -f /var/log/apache2/access.log`
+
+### Troubleshooting phpMyAdmin
+
+**404 Not Found**
+```bash
+# Check symbolic link exists
+ls -la /var/www/html/secure-db-2024
+
+# Verify Apache is running
+sudo systemctl status apache2
+```
+
+**Cannot login / Access denied**
+```bash
+# Verify MySQL user exists
+sudo mysql -e "SELECT User, Host FROM mysql.user WHERE User='agentcrm_user';"
+
+# Test MySQL connection
+mysql -u agentcrm_user -p agent_crm
+```
+
+**Connection refused**
+```bash
+# Check Apache is listening on 8080
+sudo netstat -tlnp | grep :8080
+
+# Check Apache error logs
+sudo tail -f /var/log/apache2/error.log
 ```
 
 ---
