@@ -131,54 +131,6 @@ npm install
 # Build frontend
 npm run build
 ```
-
-Output:
-added 465 packages, and audited 466 packages in 14s
-
-92 packages are looking for funding
-  run `npm fund` for details
-
-2 vulnerabilities (1 moderate, 1 high)
-
-To address all issues, run:
-  npm audit fix
-
-Run `npm audit` for details.
-npm notice
-npm notice New major version of npm available! 10.8.2 -> 11.6.3
-npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.3
-npm notice To update run: npm install -g npm@11.6.3
-npm notice
-
-agentcrm@srv1142562:/var/www/agent-crm$ npm run build
-
-Output:
-> agent-crm@0.0.0 build
-> vite build
-
-NODE_ENV=production is not supported in the .env file. Only NODE_ENV=development                                                                                                                                                              is supported to create a development build of your project. If you need to set                                                                                                                                                              process.env.NODE_ENV, you can set it in the Vite config instead.
-vite v7.2.2 building client environment for production...
-✓ 2560 modules transformed.
-dist/index.html                   0.66 kB │ gzip:   0.41 kB
-dist/assets/index-DSnKlXBX.css   30.16 kB │ gzip:   5.58 kB
-dist/assets/index-CJ4U4k97.js   806.70 kB │ gzip: 228.71 kB
-
-(!) Some chunks are larger than 500 kB after minification. Consider:
-- Using dynamic import() to code-split the application
-- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollu                                                                                                                                                             pjs.org/configuration-options/#output-manualchunks
-- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
-✓ built in 11.40s
-agentcrm@srv1142562:/var/www/agent-crm$ sudo npm install -g pm2
-
-added 133 packages in 10s
-
-13 packages are looking for funding
-  run `npm fund` for details
-npm notice
-npm notice New major version of npm available! 10.8.2 -> 11.6.3
-npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.3
-npm notice To update run: npm install -g npm@11.6.3
-npm notice
 ---
 
 ## 7. Set Up PM2 Process Manager
@@ -197,6 +149,15 @@ pm2 start server/index.js --name "agent-crm"
 - Admin user: `admin@labelsalesagents.com` / `Admin123!`
 - Default lead types: Probate, Refi, Equity, Permit, Home
 - Default statuses: New, Contacted, Qualified, Negotiating, Closed
+
+**IMPORTANT:** Run the granular permissions migration:
+```bash
+# This adds detailed permission columns needed for the app to work
+node server/migrations/addGranularPermissions.js
+
+# Restart the application
+pm2 restart agent-crm
+```
 
 ```bash
 # Configure PM2 to start on boot
@@ -223,10 +184,14 @@ sudo nano /etc/nginx/sites-available/agent-crm
 ```
 
 Add the following configuration:
+
+**IMPORTANT:** Replace `app.labelsalesagents.com` with your actual domain name.
+Do NOT use an IP address - use your domain name for SSL to work properly in step 10.
+
 ```nginx
 server {
     listen 80;
-    server_name app.labelsalesagents.com;
+    server_name app.labelsalesagents.com;  # Replace with YOUR domain
 
     # Frontend - serve built React app
     location / {
@@ -288,12 +253,20 @@ sudo ufw status
 
 ## 10. SSL Certificate (HTTPS) with Let's Encrypt
 
+**Prerequisites:**
+- Your domain DNS A record must point to your VPS IP address
+- Nginx configuration must use your domain name (not IP address) in `server_name`
+
 ```bash
 # Install Certbot
 sudo apt install -y certbot python3-certbot-nginx
 
 # Get SSL certificate (replace with your domain)
-sudo certbot --nginx -d app.labelsalesagents.com -d app.labelsalesagents.com
+sudo certbot --nginx -d yourdomain.com
+
+# If you get "Could not find matching server block" error:
+# Make sure your Nginx config has the correct server_name (step 8)
+# Then run: sudo certbot install --cert-name yourdomain.com
 
 # Auto-renewal is configured automatically
 # Test auto-renewal
@@ -315,13 +288,14 @@ sudo certbot renew --dry-run
    ```
 
 3. **Test the application:**
-   - Open `http://app.labelsalesagents.com` in browser
+   - Open `https://yourdomain.com` in browser (use HTTPS after SSL setup)
    - Login with default admin: `admin@labelsalesagents.com` / `Admin123!`
    - **IMPORTANT:** Change the admin password immediately!
 
 4. **Test webhook API:**
    ```bash
-   curl http://YOUR_DOMAIN_OR_IP/api/webhook/health
+   curl https://yourdomain.com/api/webhook/health
+   # Should return: {"status":"OK","message":"Webhook endpoint is working"}
    ```
 
 ---
@@ -342,22 +316,70 @@ sudo certbot renew --dry-run
 
 ## Troubleshooting
 
-### Application not starting
+### Application not starting (PM2 shows "errored" status)
 ```bash
+# Check the logs for detailed error messages
 pm2 logs agent-crm --lines 50
+
+# Common causes:
+# 1. Missing granular permissions - Run: node server/migrations/addGranularPermissions.js
+# 2. Database connection failed - Check MySQL is running and .env credentials
+# 3. Contacts table doesn't exist - Server should create it automatically on first start
+```
+
+### "Unknown column 'p.contact_view'" Error
+This means the granular permissions migration wasn't run:
+```bash
+cd /var/www/agent-crm
+node server/migrations/addGranularPermissions.js
+pm2 restart agent-crm
+```
+
+### Login shows "Connection Refused" or tries to connect to localhost:5000
+The frontend API configuration needs to be updated (this is now fixed in the codebase):
+- Make sure you have the latest code from the repository
+- Rebuild the frontend: `npm run build`
+- The API calls should use `/api` (relative URLs) not `http://localhost:5000/api`
+
+### SSL Certificate Error: "Could not find matching server block"
+The Nginx configuration is using an IP address instead of domain name:
+```bash
+# Edit Nginx config
+sudo nano /etc/nginx/sites-available/agent-crm
+
+# Change: server_name 123.45.67.89;
+# To: server_name yourdomain.com;
+
+# Restart Nginx
+sudo nginx -t
+sudo systemctl restart nginx
+
+# Install certificate
+sudo certbot install --cert-name yourdomain.com
 ```
 
 ### Nginx 502 Bad Gateway
 - Check if Node.js app is running: `pm2 status`
 - Check app logs: `pm2 logs agent-crm`
+- Verify backend is listening on port 5000: `curl http://localhost:5000/api/health`
 
 ### Database connection issues
 - Verify MySQL is running: `sudo systemctl status mysql`
 - Test connection: `mysql -u agentcrm_user -p -h localhost agent_crm`
+- Check .env file has correct credentials
 
 ### Permission denied errors
 ```bash
 sudo chown -R $USER:$USER /var/www/agent-crm
+```
+
+### Check what tables exist in database
+```bash
+mysql -u agentcrm_user -p agent_crm
+# Then in MySQL:
+SHOW TABLES;
+DESCRIBE permissions;  # Check permissions table structure
+exit;
 ```
 
 ---
