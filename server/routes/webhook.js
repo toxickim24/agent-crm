@@ -4,6 +4,44 @@ import { authenticateApiKey } from '../middleware/apiKeyAuth.js';
 
 const router = express.Router();
 
+// Helper function to convert date from M/D/YYYY or MM/DD/YYYY to YYYY-MM-DD
+const convertDateToMySQLFormat = (dateString) => {
+  if (!dateString || dateString.trim() === '') {
+    return null;
+  }
+
+  try {
+    // Handle M/D/YYYY or MM/DD/YYYY format
+    const parts = dateString.trim().split('/');
+    if (parts.length === 3) {
+      const month = parts[0].padStart(2, '0');
+      const day = parts[1].padStart(2, '0');
+      const year = parts[2];
+
+      // Validate the date
+      const date = new Date(`${year}-${month}-${day}`);
+      if (isNaN(date.getTime())) {
+        return null;
+      }
+
+      return `${year}-${month}-${day}`;
+    }
+
+    // If already in YYYY-MM-DD format, validate and return
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        return dateString;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Date conversion error:', error);
+    return null;
+  }
+};
+
 // Webhook endpoint to insert contact(s)
 // POST /api/webhook/:userId/:leadTypeId
 // Accepts single contact object or array of contacts
@@ -104,6 +142,9 @@ router.post('/:userId/:leadTypeId', authenticateApiKey, async (req, res) => {
         // Default status_id to 1 if not provided
         const finalStatusId = status_id || 1;
 
+        // Convert sale_date to MySQL format (YYYY-MM-DD)
+        const formattedSaleDate = convertDateToMySQLFormat(sale_date);
+
         // Insert contact into database
         const [result] = await pool.query(
           `INSERT INTO contacts (
@@ -123,7 +164,7 @@ router.post('/:userId/:leadTypeId', authenticateApiKey, async (req, res) => {
             property_address_county || null,
             estimated_value || null,
             property_type || null,
-            sale_date || null,
+            formattedSaleDate,
             contact_1_name,
             contact_first_name,
             contact_last_name,

@@ -14,7 +14,7 @@ Deploy Agent CRM on Hostinger VPS with Ubuntu 24.04 LTS.
 
 ### Connect to your VPS
 ```bash
-ssh root@YOUR_VPS_IP
+ssh root@31.97.211.184
 ```
 
 ### Update system packages
