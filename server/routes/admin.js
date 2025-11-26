@@ -594,8 +594,12 @@ router.put('/users/:id/api-config', async (req, res) => {
       aloware_account_id,
       mailchimp_api_key,
       mailchimp_server_prefix,
-      dealmachine_api_key,
-      dealmachine_account_id,
+      dealmachine_bearer_token,
+      dealmachine_get_lead,
+      mailer_campaign_id,
+      dealmachine_start_mail,
+      dealmachine_pause_mail,
+      dealmachine_end_mail,
       landing_page_url
     } = req.body;
 
@@ -608,14 +612,18 @@ router.put('/users/:id/api-config', async (req, res) => {
         `INSERT INTO api_configs (
           user_id, aloware_api_key, aloware_account_id,
           mailchimp_api_key, mailchimp_server_prefix,
-          dealmachine_api_key, dealmachine_account_id,
+          dealmachine_bearer_token, dealmachine_get_lead,
+          mailer_campaign_id, dealmachine_start_mail,
+          dealmachine_pause_mail, dealmachine_end_mail,
           landing_page_url
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id, aloware_api_key, aloware_account_id,
           mailchimp_api_key, mailchimp_server_prefix,
-          dealmachine_api_key, dealmachine_account_id,
+          dealmachine_bearer_token, dealmachine_get_lead,
+          mailer_campaign_id, dealmachine_start_mail,
+          dealmachine_pause_mail, dealmachine_end_mail,
           landing_page_url
         ]
       );
@@ -627,14 +635,20 @@ router.put('/users/:id/api-config', async (req, res) => {
              aloware_account_id = ?,
              mailchimp_api_key = ?,
              mailchimp_server_prefix = ?,
-             dealmachine_api_key = ?,
-             dealmachine_account_id = ?,
+             dealmachine_bearer_token = ?,
+             dealmachine_get_lead = ?,
+             mailer_campaign_id = ?,
+             dealmachine_start_mail = ?,
+             dealmachine_pause_mail = ?,
+             dealmachine_end_mail = ?,
              landing_page_url = ?
          WHERE user_id = ?`,
         [
           aloware_api_key, aloware_account_id,
           mailchimp_api_key, mailchimp_server_prefix,
-          dealmachine_api_key, dealmachine_account_id,
+          dealmachine_bearer_token, dealmachine_get_lead,
+          mailer_campaign_id, dealmachine_start_mail,
+          dealmachine_pause_mail, dealmachine_end_mail,
           landing_page_url, id
         ]
       );
@@ -735,6 +749,134 @@ router.delete('/users/:id/permanent', async (req, res) => {
     res.json({ message: 'User permanently deleted.' });
   } catch (error) {
     console.error('Permanent delete user error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// =====================
+// Campaign Routes
+// =====================
+
+// Get all campaigns
+router.get('/campaigns', async (req, res) => {
+  try {
+    console.log('📨 Admin route request: GET /campaigns');
+    const { showDeleted } = req.query;
+
+    let query = 'SELECT * FROM campaigns';
+    if (showDeleted !== 'true') {
+      query += ' WHERE deleted_at IS NULL';
+    }
+    query += ' ORDER BY step ASC, mail_sequence_value ASC';
+
+    const [campaigns] = await pool.query(query);
+    res.json(campaigns);
+  } catch (error) {
+    console.error('Get campaigns error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Create new campaign
+router.post('/campaigns', async (req, res) => {
+  try {
+    console.log('📨 Admin route request: POST /campaigns');
+    const { mail_sequence_value, step, mail_design_label, mail_cost } = req.body;
+
+    // Validate required fields
+    if (!mail_sequence_value || !step || !mail_design_label || mail_cost === undefined) {
+      return res.status(400).json({ error: 'All fields are required.' });
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO campaigns (mail_sequence_value, step, mail_design_label, mail_cost)
+       VALUES (?, ?, ?, ?)`,
+      [mail_sequence_value, step, mail_design_label, mail_cost]
+    );
+
+    res.status(201).json({
+      message: 'Campaign created successfully.',
+      id: result.insertId
+    });
+  } catch (error) {
+    console.error('Create campaign error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Update campaign
+router.put('/campaigns/:id', async (req, res) => {
+  try {
+    console.log('📨 Admin route request: PUT /campaigns/:id');
+    const { id } = req.params;
+    const { mail_sequence_value, step, mail_design_label, mail_cost } = req.body;
+
+    // Validate required fields
+    if (!mail_sequence_value || !step || !mail_design_label || mail_cost === undefined) {
+      return res.status(400).json({ error: 'All fields are required.' });
+    }
+
+    const [result] = await pool.query(
+      `UPDATE campaigns
+       SET mail_sequence_value = ?,
+           step = ?,
+           mail_design_label = ?,
+           mail_cost = ?
+       WHERE id = ?`,
+      [mail_sequence_value, step, mail_design_label, mail_cost, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Campaign not found.' });
+    }
+
+    res.json({ message: 'Campaign updated successfully.' });
+  } catch (error) {
+    console.error('Update campaign error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Soft delete campaign
+router.delete('/campaigns/:id', async (req, res) => {
+  try {
+    console.log('📨 Admin route request: DELETE /campaigns/:id');
+    const { id } = req.params;
+
+    const [result] = await pool.query(
+      'UPDATE campaigns SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL',
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Campaign not found or already deleted.' });
+    }
+
+    res.json({ message: 'Campaign deleted successfully.' });
+  } catch (error) {
+    console.error('Delete campaign error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Restore deleted campaign
+router.put('/campaigns/:id/restore', async (req, res) => {
+  try {
+    console.log('📨 Admin route request: PUT /campaigns/:id/restore');
+    const { id } = req.params;
+
+    const [result] = await pool.query(
+      'UPDATE campaigns SET deleted_at = NULL WHERE id = ?',
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Campaign not found.' });
+    }
+
+    res.json({ message: 'Campaign restored successfully.' });
+  } catch (error) {
+    console.error('Restore campaign error:', error);
     res.status(500).json({ error: 'Server error.' });
   }
 });

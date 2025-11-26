@@ -37,12 +37,28 @@ CREATE TABLE IF NOT EXISTS api_configs (
   aloware_account_id TEXT,
   mailchimp_api_key TEXT,
   mailchimp_server_prefix TEXT,
-  dealmachine_api_key TEXT,
-  dealmachine_account_id TEXT,
+  dealmachine_bearer_token TEXT,
+  dealmachine_get_lead TEXT,
+  mailer_campaign_id TEXT,
+  dealmachine_start_mail TEXT,
+  dealmachine_pause_mail TEXT,
+  dealmachine_end_mail TEXT,
   landing_page_url TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Campaigns table
+CREATE TABLE IF NOT EXISTS campaigns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  mail_sequence_value TEXT NOT NULL,
+  step INTEGER NOT NULL,
+  mail_design_label TEXT NOT NULL,
+  mail_cost REAL NOT NULL,
+  deleted_at DATETIME NULL DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Contacts table

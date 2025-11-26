@@ -42,13 +42,30 @@ CREATE TABLE IF NOT EXISTS api_configs (
   aloware_account_id VARCHAR(255),
   mailchimp_api_key VARCHAR(255),
   mailchimp_server_prefix VARCHAR(255),
-  dealmachine_api_key VARCHAR(255),
-  dealmachine_account_id VARCHAR(255),
+  dealmachine_bearer_token VARCHAR(500),
+  dealmachine_get_lead VARCHAR(500),
+  mailer_campaign_id VARCHAR(255),
+  dealmachine_start_mail VARCHAR(500),
+  dealmachine_pause_mail VARCHAR(500),
+  dealmachine_end_mail VARCHAR(500),
   landing_page_url VARCHAR(500),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_user_id (user_id)
+);
+
+-- Campaigns table
+CREATE TABLE IF NOT EXISTS campaigns (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  mail_sequence_value VARCHAR(255) NOT NULL,
+  step INT NOT NULL,
+  mail_design_label VARCHAR(255) NOT NULL,
+  mail_cost DECIMAL(10, 2) NOT NULL,
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_deleted_at (deleted_at)
 );
 
 -- Lead Types table

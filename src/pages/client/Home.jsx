@@ -7,6 +7,7 @@ import API_BASE_URL from '../../config/api';
 const Home = () => {
   const [contacts, setContacts] = useState([]);
   const [leadTypes, setLeadTypes] = useState([]);
+  const [mailerStats, setMailerStats] = useState({ total: 0, today: 0, totalCost: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,12 +16,14 @@ const Home = () => {
 
   const fetchData = async () => {
     try {
-      const [contactsRes, leadTypesRes] = await Promise.all([
+      const [contactsRes, leadTypesRes, mailerStatsRes] = await Promise.all([
         axios.get(`${API_BASE_URL}/contacts`),
-        axios.get(`${API_BASE_URL}/lead-types`)
+        axios.get(`${API_BASE_URL}/lead-types`),
+        axios.get(`${API_BASE_URL}/mailers/stats`)
       ]);
       setContacts(contactsRes.data.contacts);
       setLeadTypes(leadTypesRes.data);
+      setMailerStats(mailerStatsRes.data);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
@@ -82,9 +85,9 @@ const Home = () => {
     { label: 'Total Opens', value: '0', icon: Eye, change: 'Coming soon', color: 'teal' },
     { label: 'Opens Today', value: '0', icon: Eye, change: 'Coming soon', color: 'green' },
     { label: 'Clicks Today', value: '0', icon: MousePointer, change: 'Coming soon', color: 'blue' },
-    { label: 'Total Mailers Sent', value: '0', icon: Send, change: 'Coming soon', color: 'purple' },
-    { label: 'Mailers Sent Today', value: '0', icon: Send, change: 'Coming soon', color: 'pink' },
-    { label: 'Mail Campaign Cost', value: '$0', icon: DollarSign, change: 'Coming soon', color: 'red' },
+    { label: 'Total Mailers Sent', value: mailerStats.total?.toString() || '0', icon: Send, change: 'All time', color: 'purple' },
+    { label: 'Mailers Sent Today', value: mailerStats.today?.toString() || '0', icon: Send, change: 'Today', color: 'pink' },
+    { label: 'Mail Campaign Cost', value: `$${mailerStats.totalCost?.toFixed(2) || '0.00'}`, icon: DollarSign, change: 'Total spent', color: 'red' },
   ];
 
   if (loading) {

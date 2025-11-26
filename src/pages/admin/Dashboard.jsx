@@ -424,6 +424,13 @@ const AdminDashboard = () => {
               Statuses
             </button>
             <button
+              onClick={() => navigate('/admin/campaigns')}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
+            >
+              <Tag size={18} />
+              Campaigns
+            </button>
+            <button
               onClick={() => navigate('/admin/api-keys')}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
             >
@@ -945,16 +952,44 @@ const AdminDashboard = () => {
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-2">DealMachine (Mailers)</h4>
                 <input
                   type="text"
-                  placeholder="API Key"
-                  value={apiConfig.dealmachine_api_key || ''}
-                  onChange={(e) => setApiConfig({ ...apiConfig, dealmachine_api_key: e.target.value })}
+                  placeholder="Bearer Token"
+                  value={apiConfig.dealmachine_bearer_token || ''}
+                  onChange={(e) => setApiConfig({ ...apiConfig, dealmachine_bearer_token: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-2"
                 />
                 <input
                   type="text"
-                  placeholder="Account ID"
-                  value={apiConfig.dealmachine_account_id || ''}
-                  onChange={(e) => setApiConfig({ ...apiConfig, dealmachine_account_id: e.target.value })}
+                  placeholder="Get Lead URL"
+                  value={apiConfig.dealmachine_get_lead || ''}
+                  onChange={(e) => setApiConfig({ ...apiConfig, dealmachine_get_lead: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-2"
+                />
+                <input
+                  type="text"
+                  placeholder="Mailer Campaign ID"
+                  value={apiConfig.mailer_campaign_id || ''}
+                  onChange={(e) => setApiConfig({ ...apiConfig, mailer_campaign_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-2"
+                />
+                <input
+                  type="text"
+                  placeholder="Start Mail URL"
+                  value={apiConfig.dealmachine_start_mail || ''}
+                  onChange={(e) => setApiConfig({ ...apiConfig, dealmachine_start_mail: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-2"
+                />
+                <input
+                  type="text"
+                  placeholder="Pause Mail URL"
+                  value={apiConfig.dealmachine_pause_mail || ''}
+                  onChange={(e) => setApiConfig({ ...apiConfig, dealmachine_pause_mail: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-2"
+                />
+                <input
+                  type="text"
+                  placeholder="End Mail URL"
+                  value={apiConfig.dealmachine_end_mail || ''}
+                  onChange={(e) => setApiConfig({ ...apiConfig, dealmachine_end_mail: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>

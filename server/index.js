@@ -8,6 +8,7 @@ import leadTypesRoutes from './routes/leadTypes.js';
 import statusesRoutes from './routes/statuses.js';
 import apiKeysRoutes from './routes/apiKeys.js';
 import webhookRoutes from './routes/webhook.js';
+import mailersRoutes from './routes/mailers.js';
 import './config/database.js'; // Initialize database
 
 dotenv.config();
@@ -34,6 +35,7 @@ app.use('/api/lead-types', leadTypesRoutes);
 app.use('/api/statuses', statusesRoutes);
 app.use('/api/api-keys', apiKeysRoutes);
 app.use('/api/webhook', webhookRoutes);
+app.use('/api/mailers', mailersRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
