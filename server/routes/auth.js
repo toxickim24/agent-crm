@@ -126,7 +126,10 @@ router.get('/me', authenticateToken, async (req, res) => {
       `SELECT u.id, u.name, u.email, u.role, u.status, u.product_updates, u.created_at,
               p.home, p.contacts, p.calls_texts, p.emails, p.mailers,
               p.contact_view, p.contact_add, p.contact_edit, p.contact_delete,
-              p.contact_import, p.contact_export, p.allowed_lead_types
+              p.contact_import, p.contact_export,
+              p.mailer_import, p.mailer_add, p.mailer_sync_all, p.mailer_view,
+              p.mailer_sync, p.mailer_start, p.mailer_pause, p.mailer_end, p.mailer_delete,
+              p.allowed_lead_types
        FROM users u
        LEFT JOIN permissions p ON u.id = p.user_id
        WHERE u.id = ? AND u.deleted_at IS NULL`,

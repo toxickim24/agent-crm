@@ -151,6 +151,15 @@ const AdminDashboard = () => {
       contact_delete: client.contact_delete ?? true,
       contact_import: client.contact_import ?? true,
       contact_export: client.contact_export ?? true,
+      mailer_import: client.mailer_import ?? true,
+      mailer_add: client.mailer_add ?? true,
+      mailer_sync_all: client.mailer_sync_all ?? true,
+      mailer_view: client.mailer_view ?? true,
+      mailer_sync: client.mailer_sync ?? true,
+      mailer_start: client.mailer_start ?? true,
+      mailer_pause: client.mailer_pause ?? true,
+      mailer_end: client.mailer_end ?? true,
+      mailer_delete: client.mailer_delete ?? true,
       allowed_lead_types: parsedLeadTypes
     };
 
@@ -851,11 +860,41 @@ const AdminDashboard = () => {
               </div>
             </div>
 
+            {/* Mailers Granular Permissions */}
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Mailers Permissions</h4>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key: 'mailer_import', label: 'Import by Lead Type' },
+                  { key: 'mailer_add', label: 'Add Contact' },
+                  { key: 'mailer_sync_all', label: 'Sync All' },
+                  { key: 'mailer_view', label: 'View Details' },
+                  { key: 'mailer_sync', label: 'Selective Sync' },
+                  { key: 'mailer_start', label: 'Start Sequence' },
+                  { key: 'mailer_pause', label: 'Pause Sequence' },
+                  { key: 'mailer_end', label: 'End Sequence' },
+                  { key: 'mailer_delete', label: 'Delete/Remove' }
+                ].map((perm) => (
+                  <label key={perm.key} className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permissions[perm.key] ?? true}
+                      onChange={(e) => setPermissions({ ...permissions, [perm.key]: e.target.checked })}
+                      className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-gray-900 dark:text-white">
+                      {perm.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             {/* Lead Type Filter Permissions */}
             <div className="mb-6">
               <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Lead Type Filters</h4>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                Select which lead types this user can filter by. Leave unchecked to allow all lead types.
+                Select which lead types this user can access. This applies to contacts table filtering, mailers import by lead type, and mailers table filtering. Leave unchecked to allow all lead types.
               </p>
               <div className="grid grid-cols-2 gap-3">
                 {leadTypes.map((leadType) => (

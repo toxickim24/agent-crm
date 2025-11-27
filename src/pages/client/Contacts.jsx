@@ -173,7 +173,8 @@ const Contacts = () => {
       contact.contact_1_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.contact_1_email1?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.contact_1_phone1?.includes(searchTerm) ||
-      contact.property_address_full?.toLowerCase().includes(searchTerm.toLowerCase())
+      contact.property_address_full?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contact.lead_id?.toString().includes(searchTerm)
     );
 
     // Filter by lead type
@@ -1825,7 +1826,7 @@ const Contacts = () => {
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
         <input
           type="text"
-          placeholder="Search contacts by name, email, phone, or address..."
+          placeholder="Search contacts by name, email, phone, address, or lead ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

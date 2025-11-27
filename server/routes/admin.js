@@ -20,7 +20,10 @@ router.get('/users', async (req, res) => {
       SELECT u.id, u.name, u.email, u.role, u.status, u.product_updates, u.deleted_at, u.created_at,
              p.home, p.contacts, p.calls_texts, p.emails, p.mailers,
              p.contact_view, p.contact_add, p.contact_edit, p.contact_delete,
-             p.contact_import, p.contact_export, p.allowed_lead_types
+             p.contact_import, p.contact_export,
+             p.mailer_import, p.mailer_add, p.mailer_sync_all, p.mailer_view,
+             p.mailer_sync, p.mailer_start, p.mailer_pause, p.mailer_end, p.mailer_delete,
+             p.allowed_lead_types
       FROM users u
       LEFT JOIN permissions p ON u.id = p.user_id
       WHERE u.role = 'client'`;
@@ -507,7 +510,10 @@ router.put('/users/:id/permissions', async (req, res) => {
     const {
       home, contacts, calls_texts, emails, mailers,
       contact_view, contact_add, contact_edit, contact_delete,
-      contact_import, contact_export, allowed_lead_types
+      contact_import, contact_export,
+      mailer_import, mailer_add, mailer_sync_all, mailer_view,
+      mailer_sync, mailer_start, mailer_pause, mailer_end, mailer_delete,
+      allowed_lead_types
     } = req.body;
 
     console.log('📝 Updating permissions for user:', id);
@@ -528,7 +534,10 @@ router.put('/users/:id/permissions', async (req, res) => {
       `UPDATE permissions
        SET home = ?, contacts = ?, calls_texts = ?, emails = ?, mailers = ?,
            contact_view = ?, contact_add = ?, contact_edit = ?, contact_delete = ?,
-           contact_import = ?, contact_export = ?, allowed_lead_types = ?
+           contact_import = ?, contact_export = ?,
+           mailer_import = ?, mailer_add = ?, mailer_sync_all = ?, mailer_view = ?,
+           mailer_sync = ?, mailer_start = ?, mailer_pause = ?, mailer_end = ?, mailer_delete = ?,
+           allowed_lead_types = ?
        WHERE user_id = ?`,
       [
         home ? 1 : 0,
@@ -542,6 +551,15 @@ router.put('/users/:id/permissions', async (req, res) => {
         contact_delete ? 1 : 0,
         contact_import ? 1 : 0,
         contact_export ? 1 : 0,
+        mailer_import ? 1 : 0,
+        mailer_add ? 1 : 0,
+        mailer_sync_all ? 1 : 0,
+        mailer_view ? 1 : 0,
+        mailer_sync ? 1 : 0,
+        mailer_start ? 1 : 0,
+        mailer_pause ? 1 : 0,
+        mailer_end ? 1 : 0,
+        mailer_delete ? 1 : 0,
         allowedLeadTypesJson,
         id
       ]

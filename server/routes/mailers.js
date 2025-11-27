@@ -1,7 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
 import axios from 'axios';
-import { authenticateToken, isActive } from '../middleware/auth.js';
+import { authenticateToken, isActive, hasPermission, getUserPermissions } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -87,7 +87,7 @@ const getDealMachineConfig = async (userId) => {
 };
 
 // Get all mailers contacts for user
-router.get('/', async (req, res) => {
+router.get('/', getUserPermissions, async (req, res) => {
   try {
     const userId = req.user.id;
     const showDeleted = req.query.showDeleted === 'true';
@@ -102,13 +102,21 @@ router.get('/', async (req, res) => {
        JOIN contacts c ON mc.lead_id = c.lead_id AND c.user_id = mc.user_id
        WHERE mc.user_id = ?`;
 
+    const queryParams = [userId];
+
     if (!showDeleted) {
       query += ' AND mc.deleted_at IS NULL';
     }
 
+    // Apply lead type filter if user has restricted access
+    if (req.permissions.allowed_lead_types && req.permissions.allowed_lead_types.length > 0) {
+      query += ` AND c.lead_type IN (${req.permissions.allowed_lead_types.map(() => '?').join(',')})`;
+      queryParams.push(...req.permissions.allowed_lead_types);
+    }
+
     query += ' ORDER BY mc.updated_at DESC';
 
-    const [mailers] = await pool.query(query, [userId]);
+    const [mailers] = await pool.query(query, queryParams);
 
     res.json(mailers);
   } catch (error) {
@@ -162,14 +170,68 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// Check DealMachine API configuration status
+router.get('/config-status', async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [configs] = await pool.query(
+      `SELECT dealmachine_bearer_token, dealmachine_get_lead,
+              dealmachine_start_mail, dealmachine_pause_mail,
+              dealmachine_end_mail, mailer_campaign_id
+       FROM api_configs WHERE user_id = ?`,
+      [userId]
+    );
+
+    if (!configs.length) {
+      return res.json({
+        configured: false,
+        missing: [
+          'DealMachine Bearer Token',
+          'Get Lead API Endpoint',
+          'Start Mail API Endpoint',
+          'Pause Mail API Endpoint',
+          'End Mail API Endpoint',
+          'Mailer Campaign ID'
+        ]
+      });
+    }
+
+    const config = configs[0];
+    const missing = [];
+
+    if (!config.dealmachine_bearer_token) missing.push('DealMachine Bearer Token');
+    if (!config.dealmachine_get_lead) missing.push('Get Lead API Endpoint');
+    if (!config.dealmachine_start_mail) missing.push('Start Mail API Endpoint');
+    if (!config.dealmachine_pause_mail) missing.push('Pause Mail API Endpoint');
+    if (!config.dealmachine_end_mail) missing.push('End Mail API Endpoint');
+    if (!config.mailer_campaign_id) missing.push('Mailer Campaign ID');
+
+    res.json({
+      configured: missing.length === 0,
+      missing
+    });
+  } catch (error) {
+    console.error('Config status error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Import contacts by lead type
-router.post('/import-by-lead-type', async (req, res) => {
+router.post('/import-by-lead-type', getUserPermissions, hasPermission('mailer_import'), async (req, res) => {
   try {
     const userId = req.user.id;
     const { lead_type } = req.body;
 
     if (!lead_type) {
       return res.status(400).json({ error: 'Lead type is required' });
+    }
+
+    // Check if user has permission to access this lead type
+    if (req.permissions.allowed_lead_types && req.permissions.allowed_lead_types.length > 0) {
+      if (!req.permissions.allowed_lead_types.includes(parseInt(lead_type))) {
+        return res.status(403).json({ error: 'You do not have permission to access this lead type' });
+      }
     }
 
     // Get contacts of specified lead type that aren't already in mailers (or were deleted from mailers)
@@ -202,7 +264,7 @@ router.post('/import-by-lead-type', async (req, res) => {
 });
 
 // Add single contact to mailers
-router.post('/add-contact', async (req, res) => {
+router.post('/add-contact', hasPermission('mailer_add'), async (req, res) => {
   try {
     const userId = req.user.id;
     const { contact_id } = req.body;
@@ -248,7 +310,7 @@ router.post('/add-contact', async (req, res) => {
 });
 
 // Sync single contact with DealMachine
-router.post('/sync/:id', async (req, res) => {
+router.post('/sync/:id', hasPermission('mailer_sync'), async (req, res) => {
   try {
     const userId = req.user.id;
     const mailerId = req.params.id;
@@ -475,7 +537,7 @@ const processSyncQueue = async () => {
 };
 
 // Sync all contacts
-router.post('/sync-all', async (req, res) => {
+router.post('/sync-all', getUserPermissions, hasPermission('mailer_sync_all'), async (req, res) => {
   try {
     const userId = req.user.id;
 
@@ -519,7 +581,7 @@ router.post('/sync-all', async (req, res) => {
 });
 
 // Start mail sequence
-router.post('/start/:id', async (req, res) => {
+router.post('/start/:id', hasPermission('mailer_start'), async (req, res) => {
   try {
     const userId = req.user.id;
     const mailerId = req.params.id;
@@ -578,7 +640,7 @@ router.post('/start/:id', async (req, res) => {
 });
 
 // Pause mail sequence
-router.post('/pause/:id', async (req, res) => {
+router.post('/pause/:id', hasPermission('mailer_pause'), async (req, res) => {
   try {
     const userId = req.user.id;
     const mailerId = req.params.id;
@@ -637,7 +699,7 @@ router.post('/pause/:id', async (req, res) => {
 });
 
 // End mail sequence
-router.post('/end/:id', async (req, res) => {
+router.post('/end/:id', hasPermission('mailer_end'), async (req, res) => {
   try {
     const userId = req.user.id;
     const mailerId = req.params.id;
@@ -697,7 +759,7 @@ router.post('/end/:id', async (req, res) => {
 
 // Remove contact from mailers
 // Soft delete mailer contact
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', hasPermission('mailer_delete'), async (req, res) => {
   try {
     const userId = req.user.id;
     const mailerId = req.params.id;
