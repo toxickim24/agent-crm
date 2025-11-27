@@ -11,7 +11,10 @@ router.use(authenticateToken, isActive);
 // Job queue for sync operations
 const syncQueue = {
   jobs: [],
-  processing: false
+  processing: false,
+  totalJobs: 0,
+  completedJobs: 0,
+  currentJob: null
 };
 
 // Helper function to calculate cost based on campaign steps
@@ -462,9 +465,10 @@ const processSyncQueue = async () => {
 
   while (syncQueue.jobs.length > 0) {
     const job = syncQueue.jobs.shift();
+    syncQueue.currentJob = job;
 
     try {
-      const { userId, mailerId, leadId } = job;
+      const { userId, mailerId, leadId, contactName } = job;
 
       // Get DealMachine config
       const config = await getDealMachineConfig(userId);
@@ -581,9 +585,16 @@ const processSyncQueue = async () => {
         console.error('Failed to update sync status:', updateError);
       }
     }
+
+    // Increment completed jobs
+    syncQueue.completedJobs++;
   }
 
   syncQueue.processing = false;
+  syncQueue.currentJob = null;
+  // Reset counters when done
+  syncQueue.totalJobs = 0;
+  syncQueue.completedJobs = 0;
 };
 
 // Sync all contacts
@@ -598,9 +609,12 @@ router.post('/sync-all', getUserPermissions, hasPermission('mailer_sync_all'), a
       return res.status(400).json({ error: error.message });
     }
 
-    // Get all mailer contacts for user
+    // Get all mailer contacts for user with contact names
     const [mailers] = await pool.query(
-      'SELECT id, lead_id FROM mailers_contacts WHERE user_id = ?',
+      `SELECT mc.id, mc.lead_id, c.contact_first_name, c.contact_last_name
+       FROM mailers_contacts mc
+       JOIN contacts c ON mc.lead_id = c.lead_id AND c.user_id = mc.user_id
+       WHERE mc.user_id = ?`,
       [userId]
     );
 
@@ -608,12 +622,17 @@ router.post('/sync-all', getUserPermissions, hasPermission('mailer_sync_all'), a
       return res.json({ message: 'No contacts to sync', count: 0 });
     }
 
+    // Reset queue counters
+    syncQueue.totalJobs = mailers.length;
+    syncQueue.completedJobs = 0;
+
     // Add jobs to queue
     for (const mailer of mailers) {
       syncQueue.jobs.push({
         userId,
         mailerId: mailer.id,
-        leadId: mailer.lead_id
+        leadId: mailer.lead_id,
+        contactName: `${mailer.contact_first_name} ${mailer.contact_last_name} (${mailer.lead_id})`
       });
     }
 
@@ -626,6 +645,24 @@ router.post('/sync-all', getUserPermissions, hasPermission('mailer_sync_all'), a
     });
   } catch (error) {
     console.error('Sync all error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get sync queue status
+router.get('/sync-status', async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    res.json({
+      processing: syncQueue.processing,
+      total: syncQueue.totalJobs,
+      completed: syncQueue.completedJobs,
+      remaining: syncQueue.jobs.length,
+      current: syncQueue.currentJob ? syncQueue.currentJob.contactName : null
+    });
+  } catch (error) {
+    console.error('Sync status error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

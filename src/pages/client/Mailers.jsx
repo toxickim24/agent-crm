@@ -213,45 +213,33 @@ const Mailers = () => {
 
       let hasNotified = false; // Track if we've shown completion notification
 
-      // Poll for progress updates
+      // Poll for progress updates from sync status endpoint
       const pollInterval = setInterval(async () => {
         try {
-          // Fetch updated mailers to check sync status
-          const mailersResponse = await axios.get(`${API_BASE_URL}/mailers?showDeleted=false`);
-          const updatedMailers = mailersResponse.data;
+          // Fetch sync queue status
+          const statusResponse = await axios.get(`${API_BASE_URL}/mailers/sync-status`);
+          const status = statusResponse.data;
 
-          // Count how many have been synced (have last_sync_date updated recently)
-          const recentlySynced = updatedMailers.filter(m => {
-            if (!m.last_sync_date) return false;
-            const syncDate = new Date(m.last_sync_date);
-            const now = new Date();
-            const diffMinutes = (now - syncDate) / (1000 * 60);
-            return diffMinutes < 2; // Synced in last 2 minutes
-          });
-
-          const completed = recentlySynced.length;
-
-          // Find currently syncing contact (most recent sync)
-          const latestSync = recentlySynced.sort((a, b) =>
-            new Date(b.last_sync_date) - new Date(a.last_sync_date)
-          )[0];
-
+          // Update progress
           setSyncProgress({
-            completed,
-            total: totalContacts,
-            current: latestSync ? `${latestSync.first_name} ${latestSync.last_name} (${latestSync.lead_id})` : null
+            completed: status.completed,
+            total: status.total,
+            current: status.current
           });
 
           // Stop polling when all done
-          if (completed >= totalContacts && !hasNotified) {
+          if (!status.processing && status.completed >= status.total && status.total > 0 && !hasNotified) {
             hasNotified = true;
             clearInterval(pollInterval);
 
-            // Count success and failed
-            const successCount = recentlySynced.filter(m => m.sync_status === 'Success').length;
-            const failedCount = recentlySynced.filter(m => m.sync_status === 'Failed').length;
+            setTimeout(async () => {
+              // Fetch final mailer data to get success/fail counts
+              const mailersResponse = await axios.get(`${API_BASE_URL}/mailers?showDeleted=false`);
+              const updatedMailers = mailersResponse.data;
 
-            setTimeout(() => {
+              const successCount = updatedMailers.filter(m => m.sync_status === 'Success').length;
+              const failedCount = updatedMailers.filter(m => m.sync_status === 'Failed').length;
+
               setShowSyncProgressModal(false);
               setSyncingAll(false);
               fetchMailers();
@@ -261,7 +249,7 @@ const Mailers = () => {
               if (failedCount > 0) {
                 toast.success(`Sync complete! ${successCount} successful, ${failedCount} failed.`, { duration: 5000 });
               } else {
-                toast.success(`All ${totalContacts} contacts synced successfully!`, { duration: 5000 });
+                toast.success(`All ${status.total} contacts synced successfully!`, { duration: 5000 });
               }
             }, 1000);
           }
