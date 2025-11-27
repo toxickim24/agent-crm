@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import axios from 'axios';
 import API_BASE_URL from '../../config/api';
 import { useAuth } from '../../contexts/AuthContext';
+import Modal from '../../components/Modal';
 
 const Mailers = () => {
   const { user } = useAuth();
@@ -863,8 +864,8 @@ const Mailers = () => {
 
       {/* Import by Lead Type Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6">
+        <Modal isOpen={showImportModal} onClose={() => setShowImportModal(false)} className="max-w-md w-full">
+          <div className="p-6">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Import Contacts by Lead Type</h2>
             <div className="space-y-4">
               <div>
@@ -903,13 +904,13 @@ const Mailers = () => {
               </div>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Add Contact Modal */}
       {showAddContactModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full p-6 max-h-[90vh] flex flex-col">
+        <Modal isOpen={showAddContactModal} onClose={() => setShowAddContactModal(false)} className="max-w-2xl w-full max-h-[90vh]">
+          <div className="p-6 flex flex-col">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Add Contact to Mailers</h2>
             <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
               <div>
@@ -1016,13 +1017,13 @@ const Mailers = () => {
               </div>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* View Details Modal */}
       {showViewModal && viewingMailer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+        <Modal isOpen={showViewModal} onClose={() => setShowViewModal(false)} className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Campaign Details</h2>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -1088,13 +1089,13 @@ const Mailers = () => {
               </div>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Sync Progress Modal */}
       {showSyncProgressModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6">
+        <Modal isOpen={showSyncProgressModal} onClose={() => setShowSyncProgressModal(false)} className="max-w-md w-full">
+          <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Syncing Contacts</h2>
               <button
@@ -1146,7 +1147,7 @@ const Mailers = () => {
               </p>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
 import API_BASE_URL from '../../config/api';
+import Modal from '../../components/Modal';
 import {
   Search,
   Plus,
@@ -412,7 +413,7 @@ const Contacts = () => {
   };
 
   // Export Contacts Modal Component
-  const ExportContactsModal = ({ onClose }) => {
+  const ExportContactsModal = ({ isOpen, onClose }) => {
     const [exportLeadType, setExportLeadType] = useState('all');
 
     const handleExport = () => {
@@ -483,8 +484,8 @@ const Contacts = () => {
     };
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-        <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+      <Modal isOpen={isOpen} onClose={onClose} className="max-w-md w-full">
+        <div>
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Export Contacts</h2>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
@@ -526,12 +527,12 @@ const Contacts = () => {
             </div>
           </div>
         </div>
-      </div>
+      </Modal>
     );
   };
 
   // Add Contact Modal Component
-  const AddContactModal = ({ onClose, onSuccess }) => {
+  const AddContactModal = ({ isOpen, onClose, onSuccess }) => {
     const [statuses, setStatuses] = useState([]);
 
     // Fetch statuses on component mount
@@ -583,8 +584,8 @@ const Contacts = () => {
     };
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-        <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <Modal isOpen={isOpen} onClose={onClose} className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div>
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Add New Contact</h2>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
@@ -767,12 +768,12 @@ const Contacts = () => {
             </div>
           </form>
         </div>
-      </div>
+      </Modal>
     );
   };
 
   // Edit Contact Modal Component
-  const EditContactModal = ({ contact, onClose, onSuccess }) => {
+  const EditContactModal = ({ isOpen, contact, onClose, onSuccess }) => {
     const [statuses, setStatuses] = useState([]);
 
     // Fetch statuses on component mount
@@ -827,8 +828,8 @@ const Contacts = () => {
     };
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-        <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <Modal isOpen={isOpen} onClose={onClose} className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div>
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Edit Contact</h2>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
@@ -1011,12 +1012,12 @@ const Contacts = () => {
             </div>
           </form>
         </div>
-      </div>
+      </Modal>
     );
   };
 
   // Import Contacts Modal Component
-  const ImportContactsModal = ({ onClose, onSuccess }) => {
+  const ImportContactsModal = ({ isOpen, onClose, onSuccess }) => {
     const [csvFile, setCsvFile] = useState(null);
     const [csvHeaders, setCsvHeaders] = useState([]);
     const [columnMapping, setColumnMapping] = useState({});
@@ -1334,8 +1335,8 @@ const Contacts = () => {
     };
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-        <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <Modal isOpen={isOpen} onClose={onClose} className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div>
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Import Contacts</h2>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
@@ -1457,14 +1458,14 @@ const Contacts = () => {
             )}
           </div>
         </div>
-      </div>
+      </Modal>
     );
   };
 
   // Contact Profile Modal
-  const ContactProfileModal = ({ contact, onClose }) => (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+  const ContactProfileModal = ({ isOpen, contact, onClose }) => (
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Contact Profile</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
@@ -1589,7 +1590,7 @@ const Contacts = () => {
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 
   if (loading) {
@@ -2046,10 +2047,11 @@ const Contacts = () => {
       )}
 
       {/* Modals */}
-      {selectedContact && <ContactProfileModal contact={selectedContact} onClose={() => setSelectedContact(null)} />}
-      {showAddModal && <AddContactModal onClose={() => setShowAddModal(false)} onSuccess={fetchContacts} />}
+      {selectedContact && <ContactProfileModal isOpen={!!selectedContact} contact={selectedContact} onClose={() => setSelectedContact(null)} />}
+      {showAddModal && <AddContactModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} onSuccess={fetchContacts} />}
       {showEditModal && editingContact && (
         <EditContactModal
+          isOpen={showEditModal}
           contact={editingContact}
           onClose={() => {
             setShowEditModal(false);
@@ -2058,8 +2060,8 @@ const Contacts = () => {
           onSuccess={fetchContacts}
         />
       )}
-      {showImportModal && <ImportContactsModal onClose={() => setShowImportModal(false)} onSuccess={fetchContacts} />}
-      {showExportModal && <ExportContactsModal onClose={() => setShowExportModal(false)} />}
+      {showImportModal && <ImportContactsModal isOpen={showImportModal} onClose={() => setShowImportModal(false)} onSuccess={fetchContacts} />}
+      {showExportModal && <ExportContactsModal isOpen={showExportModal} onClose={() => setShowExportModal(false)} />}
     </div>
   );
 };
