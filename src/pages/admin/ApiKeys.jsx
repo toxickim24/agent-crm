@@ -203,6 +203,13 @@ const ApiKeys = () => {
     return `${baseUrl}/api/webhook/${userId}/${leadTypeId}`;
   };
 
+  const getDocumentationUrl = (filename) => {
+    const baseUrl = window.location.hostname === 'localhost'
+      ? 'http://localhost:5000'
+      : `https://${window.location.hostname}`;
+    return `${baseUrl}/${filename}`;
+  };
+
   const handleEditProfile = () => {
     setProfileData({ name: user?.name || '', email: user?.email || '' });
     setShowEditProfile(true);
@@ -333,7 +340,7 @@ const ApiKeys = () => {
               </p>
               <div className="flex gap-2">
                 <a
-                  href="/WEBHOOK_API_DOCUMENTATION.md"
+                  href={getDocumentationUrl('WEBHOOK_API_DOCUMENTATION.md')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
@@ -343,7 +350,7 @@ const ApiKeys = () => {
                 </a>
                 <span className="text-blue-400 dark:text-blue-600">•</span>
                 <a
-                  href="/WEBHOOK_QUICKSTART.md"
+                  href={getDocumentationUrl('WEBHOOK_QUICKSTART.md')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
