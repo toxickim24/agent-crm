@@ -34,7 +34,8 @@ app.use((req, res, next) => {
 });
 
 // Public documentation routes (no authentication required)
-app.get('/WEBHOOK_API_DOCUMENTATION.md', (req, res) => {
+// Using /api prefix to avoid conflicts with frontend routing in production
+app.get('/api/docs/webhook-documentation', (req, res) => {
   const filePath = path.join(__dirname, '..', 'WEBHOOK_API_DOCUMENTATION.md');
   if (fs.existsSync(filePath)) {
     res.setHeader('Content-Type', 'text/markdown');
@@ -44,7 +45,7 @@ app.get('/WEBHOOK_API_DOCUMENTATION.md', (req, res) => {
   }
 });
 
-app.get('/WEBHOOK_QUICKSTART.md', (req, res) => {
+app.get('/api/docs/webhook-quickstart', (req, res) => {
   const filePath = path.join(__dirname, '..', 'WEBHOOK_QUICKSTART.md');
   if (fs.existsSync(filePath)) {
     res.setHeader('Content-Type', 'text/markdown');
@@ -52,6 +53,15 @@ app.get('/WEBHOOK_QUICKSTART.md', (req, res) => {
   } else {
     res.status(404).json({ error: 'Quick start guide not found' });
   }
+});
+
+// Legacy routes for backward compatibility (redirect to new routes)
+app.get('/WEBHOOK_API_DOCUMENTATION.md', (req, res) => {
+  res.redirect('/api/docs/webhook-documentation');
+});
+
+app.get('/WEBHOOK_QUICKSTART.md', (req, res) => {
+  res.redirect('/api/docs/webhook-quickstart');
 });
 
 // Routes

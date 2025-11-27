@@ -203,11 +203,12 @@ const ApiKeys = () => {
     return `${baseUrl}/api/webhook/${userId}/${leadTypeId}`;
   };
 
-  const getDocumentationUrl = (filename) => {
+  const getDocumentationUrl = (docType) => {
+    // Use /api/docs routes to avoid conflicts with frontend routing
     const baseUrl = window.location.hostname === 'localhost'
       ? 'http://localhost:5000'
       : `https://${window.location.hostname}`;
-    return `${baseUrl}/${filename}`;
+    return `${baseUrl}/api/docs/${docType}`;
   };
 
   const handleEditProfile = () => {
@@ -340,7 +341,7 @@ const ApiKeys = () => {
               </p>
               <div className="flex gap-2">
                 <a
-                  href={getDocumentationUrl('WEBHOOK_API_DOCUMENTATION.md')}
+                  href={getDocumentationUrl('webhook-documentation')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
@@ -350,7 +351,7 @@ const ApiKeys = () => {
                 </a>
                 <span className="text-blue-400 dark:text-blue-600">•</span>
                 <a
-                  href={getDocumentationUrl('WEBHOOK_QUICKSTART.md')}
+                  href={getDocumentationUrl('webhook-quickstart')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
