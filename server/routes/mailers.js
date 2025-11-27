@@ -330,13 +330,38 @@ router.post('/sync/:id', hasPermission('mailer_sync'), async (req, res) => {
     // Get DealMachine config
     const config = await getDealMachineConfig(userId);
 
-    // Call DealMachine API
+    // Call DealMachine API with retry logic
     const apiUrl = config.dealmachine_get_lead.replace(':lead_id', leadId);
-    const response = await axios.get(apiUrl, {
-      headers: {
-        'Authorization': `Bearer ${config.dealmachine_bearer_token}`
+
+    let retries = 3;
+    let lastError = null;
+    let response = null;
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        response = await axios.get(apiUrl, {
+          headers: {
+            'Authorization': `Bearer ${config.dealmachine_bearer_token}`
+          },
+          timeout: 30000 // 30 second timeout
+        });
+        break; // Success, exit retry loop
+      } catch (error) {
+        lastError = error;
+        console.log(`Sync attempt ${attempt}/${retries} failed for mailer ${mailerId}: ${error.message}`);
+
+        // If this is a timeout and we have retries left, wait before retrying
+        if (attempt < retries && (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT')) {
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
+        } else if (attempt === retries) {
+          throw lastError; // Out of retries, throw the error
+        }
       }
-    });
+    }
+
+    if (!response) {
+      throw lastError || new Error('Failed to get response after retries');
+    }
 
     // DealMachine API returns { error: null, data: {...} }
     const data = response.data.data || response.data;
@@ -448,12 +473,37 @@ const processSyncQueue = async () => {
       await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between requests
 
       const apiUrl = config.dealmachine_get_lead.replace(':lead_id', leadId);
-      const response = await axios.get(apiUrl, {
-        headers: {
-          'Authorization': `Bearer ${config.dealmachine_bearer_token}`
-        },
-        timeout: 10000
-      });
+
+      // Retry logic with increased timeout
+      let retries = 3;
+      let lastError = null;
+      let response = null;
+
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          response = await axios.get(apiUrl, {
+            headers: {
+              'Authorization': `Bearer ${config.dealmachine_bearer_token}`
+            },
+            timeout: 30000 // Increased to 30 seconds
+          });
+          break; // Success, exit retry loop
+        } catch (error) {
+          lastError = error;
+          console.log(`Attempt ${attempt}/${retries} failed for mailer ${mailerId}: ${error.message}`);
+
+          // If this is a timeout and we have retries left, wait before retrying
+          if (attempt < retries && (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT')) {
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
+          } else if (attempt === retries) {
+            throw lastError; // Out of retries, throw the error
+          }
+        }
+      }
+
+      if (!response) {
+        throw lastError || new Error('Failed to get response after retries');
+      }
 
       // DealMachine API returns { error: null, data: {...} }
       const data = response.data.data || response.data;

@@ -270,7 +270,7 @@ const Mailers = () => {
         }
       }, 1000); // Poll every second
 
-      // Safety timeout - stop polling after 5 minutes
+      // Safety timeout - stop polling after 10 minutes
       setTimeout(() => {
         clearInterval(pollInterval);
         if (!hasNotified) {
@@ -280,7 +280,7 @@ const Mailers = () => {
           fetchStats();
           toast.info('Sync timeout reached. Check sync status column for results.');
         }
-      }, 300000);
+      }, 600000); // 10 minutes (600000ms)
 
     } catch (error) {
       console.error('Sync all failed:', error);
