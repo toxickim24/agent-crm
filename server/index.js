@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import contactsRoutes from './routes/contacts.js';
@@ -10,6 +13,9 @@ import apiKeysRoutes from './routes/apiKeys.js';
 import webhookRoutes from './routes/webhook.js';
 import mailersRoutes from './routes/mailers.js';
 import './config/database.js'; // Initialize database
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -25,6 +31,27 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use((req, res, next) => {
   console.log(`📥 ${req.method} ${req.url}`);
   next();
+});
+
+// Public documentation routes (no authentication required)
+app.get('/WEBHOOK_API_DOCUMENTATION.md', (req, res) => {
+  const filePath = path.join(__dirname, '..', 'WEBHOOK_API_DOCUMENTATION.md');
+  if (fs.existsSync(filePath)) {
+    res.setHeader('Content-Type', 'text/markdown');
+    res.sendFile(filePath);
+  } else {
+    res.status(404).json({ error: 'Documentation not found' });
+  }
+});
+
+app.get('/WEBHOOK_QUICKSTART.md', (req, res) => {
+  const filePath = path.join(__dirname, '..', 'WEBHOOK_QUICKSTART.md');
+  if (fs.existsSync(filePath)) {
+    res.setHeader('Content-Type', 'text/markdown');
+    res.sendFile(filePath);
+  } else {
+    res.status(404).json({ error: 'Quick start guide not found' });
+  }
 });
 
 // Routes
