@@ -227,31 +227,29 @@ const Mailers = () => {
             current: status.current
           });
 
-          // Stop polling when all done
-          if (!status.processing && status.completed >= status.total && status.total > 0 && !hasNotified) {
+          // Stop polling when all done - check if processing is complete AND we have valid counts
+          if (!status.processing && status.completed > 0 && status.completed >= status.total && !hasNotified) {
             hasNotified = true;
             clearInterval(pollInterval);
 
-            setTimeout(async () => {
-              // Fetch final mailer data to get success/fail counts
-              const mailersResponse = await axios.get(`${API_BASE_URL}/mailers?showDeleted=false`);
-              const updatedMailers = mailersResponse.data;
+            // Fetch final mailer data to get success/fail counts
+            const mailersResponse = await axios.get(`${API_BASE_URL}/mailers?showDeleted=false`);
+            const updatedMailers = mailersResponse.data;
 
-              const successCount = updatedMailers.filter(m => m.sync_status === 'Success').length;
-              const failedCount = updatedMailers.filter(m => m.sync_status === 'Failed').length;
+            const successCount = updatedMailers.filter(m => m.sync_status === 'Success').length;
+            const failedCount = updatedMailers.filter(m => m.sync_status === 'Failed').length;
 
-              setShowSyncProgressModal(false);
-              setSyncingAll(false);
-              fetchMailers();
-              fetchStats();
+            setShowSyncProgressModal(false);
+            setSyncingAll(false);
+            fetchMailers();
+            fetchStats();
 
-              // Show detailed notification
-              if (failedCount > 0) {
-                toast.success(`Sync complete! ${successCount} successful, ${failedCount} failed.`, { duration: 5000 });
-              } else {
-                toast.success(`All ${status.total} contacts synced successfully!`, { duration: 5000 });
-              }
-            }, 1000);
+            // Show detailed notification
+            if (failedCount > 0) {
+              toast.success(`Sync complete! ${successCount} successful, ${failedCount} failed.`, { duration: 5000 });
+            } else {
+              toast.success(`All ${status.total} contacts synced successfully!`, { duration: 5000 });
+            }
           }
         } catch (error) {
           console.error('Error polling sync progress:', error);

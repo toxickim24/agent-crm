@@ -592,9 +592,8 @@ const processSyncQueue = async () => {
 
   syncQueue.processing = false;
   syncQueue.currentJob = null;
-  // Reset counters when done
-  syncQueue.totalJobs = 0;
-  syncQueue.completedJobs = 0;
+  // Don't reset counters immediately - let frontend read final state
+  // Counters will be reset when a new sync-all is started
 };
 
 // Sync all contacts
