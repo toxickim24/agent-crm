@@ -735,7 +735,7 @@ const Mailers = () => {
                       {leadTypes.find(lt => lt.id === mailer.lead_type)?.name || mailer.lead_type || 'N/A'}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                         mailer.campaign_status_label?.includes('Progress')
                           ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
                           : mailer.campaign_status_label?.includes('Paused')
