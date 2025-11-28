@@ -370,6 +370,14 @@ const Mailers = () => {
     });
   };
 
+  const formatCampaignStatus = (status) => {
+    if (!status) return 'Not Started';
+    if (status === 'Mail Sequence In Progress') return 'In Progress';
+    if (status === 'Mail Sequence Pause') return 'Paused';
+    if (status === 'Mail Sequence Ended') return 'Ended';
+    return status;
+  };
+
   const totalCost = mailers.reduce((sum, m) => sum + (parseFloat(m.cost) || 0), 0);
 
   const statsDisplay = [
@@ -736,7 +744,7 @@ const Mailers = () => {
                           ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
                           : 'bg-gray-100 dark:bg-gray-900/20 text-gray-700 dark:text-gray-400'
                       }`}>
-                        {mailer.campaign_status_label || 'Not Started'}
+                        {formatCampaignStatus(mailer.campaign_status_label)}
                       </span>
                     </td>
                     <td className="px-6 py-4">
