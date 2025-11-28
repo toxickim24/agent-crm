@@ -373,7 +373,7 @@ const Mailers = () => {
   const formatCampaignStatus = (status) => {
     if (!status) return 'Not Started';
     if (status === 'Mail Sequence In Progress') return 'In Progress';
-    if (status === 'Mail Sequence Pause') return 'Paused';
+    if (status === 'Mail Sequence Paused') return 'Paused';
     if (status === 'Mail Sequence Ended') return 'Ended';
     return status;
   };
