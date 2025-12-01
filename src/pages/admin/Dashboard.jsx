@@ -822,24 +822,24 @@ const AdminDashboard = () => {
       {/* Permissions Modal */}
       {selectedClient && !showApiConfig && !showEditUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setSelectedClient(null)}>
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-5xl w-full p-6 my-8 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-7xl w-full p-4 my-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
               Edit Permissions: {selectedClient.name}
             </h3>
 
             {/* General Permissions */}
-            <div className="mb-6">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">General Permissions</h4>
-              <div className="space-y-3">
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">General Permissions</h4>
+              <div className="grid grid-cols-5 gap-2">
                 {['home', 'contacts', 'calls_texts', 'emails', 'mailers'].map((perm) => (
-                  <label key={perm} className="flex items-center gap-3 cursor-pointer">
+                  <label key={perm} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={permissions[perm]}
                       onChange={(e) => setPermissions({ ...permissions, [perm]: e.target.checked })}
                       className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                     />
-                    <span className="text-gray-900 dark:text-white capitalize">
+                    <span className="text-gray-900 dark:text-white capitalize text-sm">
                       {perm.replace('_', ' & ')}
                     </span>
                   </label>
@@ -848,9 +848,9 @@ const AdminDashboard = () => {
             </div>
 
             {/* Contact Granular Permissions */}
-            <div className="mb-6">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Contact Permissions</h4>
-              <div className="grid grid-cols-2 gap-3">
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Contact Permissions</h4>
+              <div className="grid grid-cols-4 gap-2">
                 {[
                   { key: 'contact_view', label: 'View Contacts' },
                   { key: 'contact_add', label: 'Add Contact' },
@@ -859,14 +859,14 @@ const AdminDashboard = () => {
                   { key: 'contact_import', label: 'Import Contacts' },
                   { key: 'contact_export', label: 'Export Contacts' }
                 ].map((perm) => (
-                  <label key={perm.key} className="flex items-center gap-3 cursor-pointer">
+                  <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={permissions[perm.key] ?? true}
                       onChange={(e) => setPermissions({ ...permissions, [perm.key]: e.target.checked })}
                       className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                     />
-                    <span className="text-gray-900 dark:text-white">
+                    <span className="text-gray-900 dark:text-white text-sm">
                       {perm.label}
                     </span>
                   </label>
@@ -875,9 +875,9 @@ const AdminDashboard = () => {
             </div>
 
             {/* Mailers Granular Permissions */}
-            <div className="mb-6">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Mailers Permissions</h4>
-              <div className="grid grid-cols-2 gap-3">
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Mailers Permissions</h4>
+              <div className="grid grid-cols-4 gap-2">
                 {[
                   { key: 'mailer_import', label: 'Import by Lead Type' },
                   { key: 'mailer_add', label: 'Add Contact' },
@@ -889,14 +889,14 @@ const AdminDashboard = () => {
                   { key: 'mailer_end', label: 'End Sequence' },
                   { key: 'mailer_delete', label: 'Delete/Remove' }
                 ].map((perm) => (
-                  <label key={perm.key} className="flex items-center gap-3 cursor-pointer">
+                  <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={permissions[perm.key] ?? true}
                       onChange={(e) => setPermissions({ ...permissions, [perm.key]: e.target.checked })}
                       className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                     />
-                    <span className="text-gray-900 dark:text-white">
+                    <span className="text-gray-900 dark:text-white text-sm">
                       {perm.label}
                     </span>
                   </label>
@@ -905,9 +905,9 @@ const AdminDashboard = () => {
             </div>
 
             {/* Email Granular Permissions */}
-            <div className="mb-6">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Email Permissions (Mailchimp)</h4>
-              <div className="grid grid-cols-2 gap-3">
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Email Permissions (Mailchimp)</h4>
+              <div className="grid grid-cols-4 gap-2">
                 {[
                   { key: 'email_sync_contacts', label: 'Sync Contacts' },
                   { key: 'email_sync_campaigns', label: 'Sync Campaigns' },
@@ -916,14 +916,14 @@ const AdminDashboard = () => {
                   { key: 'email_archive_campaign', label: 'Archive Campaign' },
                   { key: 'email_delete_campaign', label: 'Delete Campaign' }
                 ].map((perm) => (
-                  <label key={perm.key} className="flex items-center gap-3 cursor-pointer">
+                  <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={permissions[perm.key] ?? true}
                       onChange={(e) => setPermissions({ ...permissions, [perm.key]: e.target.checked })}
                       className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                     />
-                    <span className="text-gray-900 dark:text-white">
+                    <span className="text-gray-900 dark:text-white text-sm">
                       {perm.label}
                     </span>
                   </label>
@@ -932,14 +932,14 @@ const AdminDashboard = () => {
             </div>
 
             {/* Lead Type Filter Permissions */}
-            <div className="mb-6">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Lead Type Filters</h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                Select which lead types this user can access. This applies to contacts table filtering, mailers import by lead type, and mailers table filtering. Leave unchecked to allow all lead types.
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Lead Type Filters</h4>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                Select which lead types this user can access. Leave unchecked to allow all lead types.
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-6 gap-2">
                 {leadTypes.map((leadType) => (
-                  <label key={leadType.id} className="flex items-center gap-3 cursor-pointer">
+                  <label key={leadType.id} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={permissions.allowed_lead_types === null || permissions.allowed_lead_types?.includes(leadType.id)}
@@ -956,7 +956,7 @@ const AdminDashboard = () => {
                       className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                     />
                     <span
-                      className="px-2 py-1 rounded text-sm font-medium text-white"
+                      className="px-2 py-0.5 rounded text-xs font-medium text-white"
                       style={{ backgroundColor: leadType.color }}
                     >
                       {leadType.name}
@@ -966,16 +966,16 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2 mt-3">
               <button
                 onClick={handleSavePermissions}
-                className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                className="px-6 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
               >
                 Save
               </button>
               <button
                 onClick={() => setSelectedClient(null)}
-                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded-lg"
+                className="px-6 py-1.5 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded text-sm"
               >
                 Cancel
               </button>
