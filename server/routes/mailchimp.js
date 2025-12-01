@@ -713,8 +713,27 @@ router.post('/campaigns/sync', getUserPermissions, async (req, res) => {
 
     res.json({ message: `Synced ${syncedCount} campaigns successfully`, count: syncedCount });
   } catch (error) {
-    console.error('Sync campaigns error:', error);
-    res.status(500).json({ error: error.response?.data?.detail || 'Failed to sync campaigns' });
+    console.error('❌ Sync campaigns error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      response: error.response?.data,
+      code: error.code,
+      sqlMessage: error.sqlMessage,
+      sql: error.sql
+    });
+
+    // Return detailed error message
+    const errorMessage = error.sqlMessage
+      ? `Database error: ${error.sqlMessage}`
+      : error.response?.data?.detail
+      ? `Mailchimp API error: ${error.response.data.detail}`
+      : error.message || 'Failed to sync campaigns';
+
+    res.status(500).json({
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
