@@ -472,6 +472,7 @@ const EmailsEnhanced = () => {
   }
 
   return (
+    <>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -1210,26 +1211,6 @@ const EmailsEnhanced = () => {
         </div>
       </div>
 
-      {/* Campaign Details Modal */}
-      <CampaignDetailsModal
-        campaign={selectedCampaign}
-        isOpen={showCampaignModal}
-        onClose={() => {
-          setShowCampaignModal(false);
-          setSelectedCampaign(null);
-        }}
-      />
-
-      {/* Campaign Comparison Modal */}
-      <CampaignComparisonModal
-        campaigns={campaignsToCompare}
-        isOpen={showComparisonModal}
-        onClose={() => {
-          setShowComparisonModal(false);
-          setCampaignsToCompare([]);
-        }}
-      />
-
       {/* Email Contacts Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -1654,30 +1635,48 @@ const EmailsEnhanced = () => {
           </div>
         )}
       </div>
-
-      {/* Contact Sync Modal */}
-      <ContactSyncModal
-        isOpen={showContactSyncModal}
-        onClose={() => setShowContactSyncModal(false)}
-        leadTypeId={selectedLeadType}
-        leadTypeName={selectedConfig?.lead_type_name}
-        onSyncComplete={() => {
-          // Refresh stats and contacts after sync
-          fetchStats();
-          fetchEmailContacts();
-        }}
-      />
-
-      {/* Contact Details Modal */}
-      <ContactDetailsModal
-        contact={selectedContact}
-        isOpen={showContactDetailsModal}
-        onClose={() => {
-          setShowContactDetailsModal(false);
-          setSelectedContact(null);
-        }}
-      />
     </div>
+
+    {/* Modals - Rendered outside space-y-6 container to avoid margin issues */}
+    <ContactSyncModal
+      isOpen={showContactSyncModal}
+      onClose={() => setShowContactSyncModal(false)}
+      leadTypeId={selectedLeadType}
+      leadTypeName={selectedConfig?.lead_type_name}
+      onSyncComplete={() => {
+        // Refresh stats and contacts after sync
+        fetchStats();
+        fetchEmailContacts();
+      }}
+    />
+
+    <ContactDetailsModal
+      contact={selectedContact}
+      isOpen={showContactDetailsModal}
+      onClose={() => {
+        setShowContactDetailsModal(false);
+        setSelectedContact(null);
+      }}
+    />
+
+    <CampaignDetailsModal
+      campaign={selectedCampaign}
+      isOpen={showCampaignModal}
+      onClose={() => {
+        setShowCampaignModal(false);
+        setSelectedCampaign(null);
+      }}
+    />
+
+    <CampaignComparisonModal
+      campaigns={campaignsToCompare}
+      isOpen={showComparisonModal}
+      onClose={() => {
+        setShowComparisonModal(false);
+        setCampaignsToCompare([]);
+      }}
+    />
+    </>
   );
 };
 
