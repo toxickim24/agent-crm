@@ -21,7 +21,8 @@ import {
   Eye,
   EyeOff,
   Tag,
-  Key
+  Key,
+  Mail
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -160,6 +161,12 @@ const AdminDashboard = () => {
       mailer_pause: client.mailer_pause ?? true,
       mailer_end: client.mailer_end ?? true,
       mailer_delete: client.mailer_delete ?? true,
+      email_sync_contacts: client.email_sync_contacts ?? true,
+      email_sync_campaigns: client.email_sync_campaigns ?? true,
+      email_view_campaign: client.email_view_campaign ?? true,
+      email_export_csv: client.email_export_csv ?? true,
+      email_archive_campaign: client.email_archive_campaign ?? true,
+      email_delete_campaign: client.email_delete_campaign ?? true,
       allowed_lead_types: parsedLeadTypes
     };
 
@@ -445,6 +452,13 @@ const AdminDashboard = () => {
             >
               <Key size={18} />
               API Keys
+            </button>
+            <button
+              onClick={() => navigate('/admin/mailchimp')}
+              className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
+            >
+              <Mail size={18} />
+              Mailchimp
             </button>
             <button
               onClick={toggleTheme}
@@ -808,7 +822,7 @@ const AdminDashboard = () => {
       {/* Permissions Modal */}
       {selectedClient && !showApiConfig && !showEditUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setSelectedClient(null)}>
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full p-6 my-8" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-5xl w-full p-6 my-8 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
               Edit Permissions: {selectedClient.name}
             </h3>
@@ -874,6 +888,33 @@ const AdminDashboard = () => {
                   { key: 'mailer_pause', label: 'Pause Sequence' },
                   { key: 'mailer_end', label: 'End Sequence' },
                   { key: 'mailer_delete', label: 'Delete/Remove' }
+                ].map((perm) => (
+                  <label key={perm.key} className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permissions[perm.key] ?? true}
+                      onChange={(e) => setPermissions({ ...permissions, [perm.key]: e.target.checked })}
+                      className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-gray-900 dark:text-white">
+                      {perm.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Email Granular Permissions */}
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Email Permissions (Mailchimp)</h4>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key: 'email_sync_contacts', label: 'Sync Contacts' },
+                  { key: 'email_sync_campaigns', label: 'Sync Campaigns' },
+                  { key: 'email_view_campaign', label: 'View Campaign Details' },
+                  { key: 'email_export_csv', label: 'Export to CSV' },
+                  { key: 'email_archive_campaign', label: 'Archive Campaign' },
+                  { key: 'email_delete_campaign', label: 'Delete Campaign' }
                 ].map((perm) => (
                   <label key={perm.key} className="flex items-center gap-3 cursor-pointer">
                     <input
@@ -965,24 +1006,6 @@ const AdminDashboard = () => {
                   placeholder="Account ID"
                   value={apiConfig.aloware_account_id || ''}
                   onChange={(e) => setApiConfig({ ...apiConfig, aloware_account_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Mailchimp (Emails)</h4>
-                <input
-                  type="text"
-                  placeholder="API Key"
-                  value={apiConfig.mailchimp_api_key || ''}
-                  onChange={(e) => setApiConfig({ ...apiConfig, mailchimp_api_key: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-2"
-                />
-                <input
-                  type="text"
-                  placeholder="Server Prefix (e.g., us1)"
-                  value={apiConfig.mailchimp_server_prefix || ''}
-                  onChange={(e) => setApiConfig({ ...apiConfig, mailchimp_server_prefix: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>

@@ -129,6 +129,8 @@ router.get('/me', authenticateToken, async (req, res) => {
               p.contact_import, p.contact_export,
               p.mailer_import, p.mailer_add, p.mailer_sync_all, p.mailer_view,
               p.mailer_sync, p.mailer_start, p.mailer_pause, p.mailer_end, p.mailer_delete,
+              p.email_sync_contacts, p.email_sync_campaigns, p.email_view_campaign,
+              p.email_export_csv, p.email_archive_campaign, p.email_delete_campaign,
               p.allowed_lead_types
        FROM users u
        LEFT JOIN permissions p ON u.id = p.user_id

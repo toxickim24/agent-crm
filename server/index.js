@@ -12,7 +12,9 @@ import statusesRoutes from './routes/statuses.js';
 import apiKeysRoutes from './routes/apiKeys.js';
 import webhookRoutes from './routes/webhook.js';
 import mailersRoutes from './routes/mailers.js';
+import mailchimpRoutes from './routes/mailchimp.js';
 import './config/database.js'; // Initialize database
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,6 +27,12 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increased limit for bulk imports
+
+// Request logger
+app.use((req, res, next) => {
+  console.log(`📥 ${req.method} ${req.path}`);
+  next();
+});
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Log all requests
@@ -73,6 +81,7 @@ app.use('/api/statuses', statusesRoutes);
 app.use('/api/api-keys', apiKeysRoutes);
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/mailers', mailersRoutes);
+app.use('/api/mailchimp', mailchimpRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -81,7 +90,8 @@ app.get('/api/health', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('❌ ERROR HANDLER CAUGHT:', err.message);
+  console.error('Error stack:', err.stack);
   res.status(500).json({ error: 'Something went wrong!' });
 });
 

@@ -1,13 +1,24 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Users, UserPlus, Phone, MessageSquare, Mail, Send, MousePointer, Eye, DollarSign } from 'lucide-react';
+import { Users, UserPlus, Phone, MessageSquare, Mail, Send, MousePointer, Eye, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import API_BASE_URL from '../../config/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Home = () => {
+  const { user } = useAuth();
   const [contacts, setContacts] = useState([]);
   const [leadTypes, setLeadTypes] = useState([]);
   const [mailerStats, setMailerStats] = useState({ total: 0, today: 0, totalCost: 0 });
+  const [mailchimpStats, setMailchimpStats] = useState({
+    total_sent: 0,
+    total_opens: 0,
+    total_clicks: 0,
+    avg_open_rate: 0,
+    avg_click_rate: 0
+  });
+  const [totalCampaigns, setTotalCampaigns] = useState(0);
+  const [dailyEmailStats, setDailyEmailStats] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,14 +27,20 @@ const Home = () => {
 
   const fetchData = async () => {
     try {
-      const [contactsRes, leadTypesRes, mailerStatsRes] = await Promise.all([
+      const [contactsRes, leadTypesRes, mailerStatsRes, mailchimpStatsRes, campaignsRes, dailyEmailRes] = await Promise.all([
         axios.get(`${API_BASE_URL}/contacts`),
         axios.get(`${API_BASE_URL}/lead-types`),
-        axios.get(`${API_BASE_URL}/mailers/stats`)
+        axios.get(`${API_BASE_URL}/mailers/stats`),
+        axios.get(`${API_BASE_URL}/mailchimp/stats`).catch(() => ({ data: {} })),
+        axios.get(`${API_BASE_URL}/mailchimp/campaigns`).catch(() => ({ data: { campaigns: [] } })),
+        axios.get(`${API_BASE_URL}/mailchimp/stats/daily?days=30`).catch(() => ({ data: { dailyStats: [] } }))
       ]);
       setContacts(contactsRes.data.contacts);
       setLeadTypes(leadTypesRes.data);
       setMailerStats(mailerStatsRes.data);
+      setMailchimpStats(mailchimpStatsRes.data);
+      setTotalCampaigns(campaignsRes.data.campaigns?.length || 0);
+      setDailyEmailStats(dailyEmailRes.data.dailyStats || []);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
@@ -42,13 +59,14 @@ const Home = () => {
     return createdDate.getTime() === today.getTime();
   }).length;
 
-  // Calculate weekly data (last 7 days)
-  const weeklyData = [];
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  for (let i = 6; i >= 0; i--) {
+  // Calculate monthly data (last 30 days)
+  const monthlyData = [];
+  for (let i = 29; i >= 0; i--) {
     const date = new Date();
     date.setDate(date.getDate() - i);
     date.setHours(0, 0, 0, 0);
+
+    const dateStr = date.toISOString().split('T')[0];
 
     const dayContacts = contacts.filter(c => {
       const createdDate = new Date(c.created_at);
@@ -56,10 +74,16 @@ const Home = () => {
       return createdDate.getTime() === date.getTime();
     }).length;
 
-    weeklyData.push({
-      day: days[date.getDay()],
+    // Find email stats for this date
+    const emailStats = dailyEmailStats.find(stat => {
+      const statDate = new Date(stat.date);
+      return statDate.toISOString().split('T')[0] === dateStr;
+    });
+
+    monthlyData.push({
+      date: `${date.getMonth() + 1}/${date.getDate()}`,
       contacts: dayContacts,
-      emails: 0, // Placeholder for future implementation
+      emails: emailStats ? parseInt(emailStats.emails_sent) || 0 : 0,
       calls: 0   // Placeholder for future implementation
     });
   }
@@ -74,21 +98,29 @@ const Home = () => {
     };
   }).filter(item => item.value > 0); // Only show types with contacts
 
-  const metrics = [
-    { label: 'Total Contacts', value: totalContacts.toString(), icon: Users, change: `+${newContactsToday}`, color: 'blue' },
-    { label: 'New Contacts Today', value: newContactsToday.toString(), icon: UserPlus, change: 'Today', color: 'green' },
-    { label: 'Calls Today', value: '0', icon: Phone, change: 'Coming soon', color: 'purple' },
-    { label: 'Texts Today', value: '0', icon: MessageSquare, change: 'Coming soon', color: 'pink' },
-    { label: 'Total Emails Sent', value: '0', icon: Mail, change: 'Coming soon', color: 'indigo' },
-    { label: 'Emails Sent Today', value: '0', icon: Mail, change: 'Coming soon', color: 'blue' },
-    { label: 'Total Clicks', value: '0', icon: MousePointer, change: 'Coming soon', color: 'cyan' },
-    { label: 'Total Opens', value: '0', icon: Eye, change: 'Coming soon', color: 'teal' },
-    { label: 'Opens Today', value: '0', icon: Eye, change: 'Coming soon', color: 'green' },
-    { label: 'Clicks Today', value: '0', icon: MousePointer, change: 'Coming soon', color: 'blue' },
-    { label: 'Total Mailers Sent', value: mailerStats.total?.toString() || '0', icon: Send, change: 'All time', color: 'purple' },
-    { label: 'Mailers Sent Today', value: mailerStats.today?.toString() || '0', icon: Send, change: 'Today', color: 'pink' },
-    { label: 'Mail Campaign Cost', value: `$${mailerStats.totalCost?.toFixed(2) || '0.00'}`, icon: DollarSign, change: 'Total spent', color: 'red' },
+  // Helper function to check permissions
+  const hasPermission = (permission) => {
+    if (!user) return false;
+    return user[permission] === 1 || user[permission] === true;
+  };
+
+  // Define all metrics with their permission requirements
+  const allMetrics = [
+    { label: 'Total Contacts', value: totalContacts.toString(), icon: Users, change: `+${newContactsToday} today`, color: 'blue', permission: 'contacts' },
+    { label: 'New Contacts Today', value: newContactsToday.toString(), icon: UserPlus, change: 'Today', color: 'green', permission: 'contacts' },
+    { label: 'Total Sent', value: (mailchimpStats.total_sent || 0).toLocaleString(), icon: Mail, change: 'Email campaigns', color: 'indigo', permission: 'emails' },
+    { label: 'Total Opens', value: (mailchimpStats.total_opens || 0).toLocaleString(), icon: Eye, change: 'All campaigns', color: 'teal', permission: 'emails' },
+    { label: 'Total Clicks', value: (mailchimpStats.total_clicks || 0).toLocaleString(), icon: MousePointer, change: 'All campaigns', color: 'cyan', permission: 'emails' },
+    { label: 'Avg Open Rate', value: `${(mailchimpStats.avg_open_rate || 0).toFixed(1)}%`, icon: TrendingUp, change: 'Campaign average', color: 'green', permission: 'emails' },
+    { label: 'Avg Click Rate', value: `${(mailchimpStats.avg_click_rate || 0).toFixed(1)}%`, icon: TrendingUp, change: 'Campaign average', color: 'blue', permission: 'emails' },
+    { label: 'Total Campaigns', value: totalCampaigns.toString(), icon: BarChart3, change: 'All lead types', color: 'purple', permission: 'emails' },
+    { label: 'Total Mailers Sent', value: mailerStats.total?.toString() || '0', icon: Send, change: 'All time', color: 'pink', permission: 'mailers' },
+    { label: 'Mailers Sent Today', value: mailerStats.today?.toString() || '0', icon: Send, change: 'Today', color: 'orange', permission: 'mailers' },
+    { label: 'Mail Campaign Cost', value: `$${mailerStats.totalCost?.toFixed(2) || '0.00'}`, icon: DollarSign, change: 'Total spent', color: 'red', permission: 'mailers' },
   ];
+
+  // Filter metrics based on user permissions
+  const metrics = allMetrics.filter(metric => hasPermission(metric.permission));
 
   if (loading) {
     return (
@@ -108,6 +140,7 @@ const Home = () => {
       cyan: 'bg-cyan-100 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400',
       teal: 'bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400',
       red: 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400',
+      orange: 'bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400',
     };
     return colors[color] || colors.blue;
   };
@@ -143,13 +176,18 @@ const Home = () => {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Weekly Activity Chart */}
+        {/* Monthly Activity Chart */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Weekly Activity</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Monthly Activity (Last 30 Days)</h2>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={weeklyData}>
+            <BarChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="day" stroke="#9ca3af" />
+              <XAxis
+                dataKey="date"
+                stroke="#9ca3af"
+                tick={{ fontSize: 10 }}
+                interval={4}
+              />
               <YAxis stroke="#9ca3af" />
               <Tooltip
                 contentStyle={{
@@ -193,11 +231,16 @@ const Home = () => {
 
       {/* Email Performance Trend */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Email Performance Trend</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Email Performance Trend (Last 30 Days)</h2>
         <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={weeklyData}>
+          <LineChart data={monthlyData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="day" stroke="#9ca3af" />
+            <XAxis
+              dataKey="date"
+              stroke="#9ca3af"
+              tick={{ fontSize: 10 }}
+              interval={4}
+            />
             <YAxis stroke="#9ca3af" />
             <Tooltip
               contentStyle={{

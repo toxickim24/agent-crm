@@ -11,6 +11,9 @@ router.use(authenticateToken, isActive);
 router.get('/', async (req, res) => {
   try {
     const showDeleted = req.query.showDeleted === 'true';
+    const leadType = req.query.lead_type;
+
+    console.log(`📋 GET /contacts - user_id: ${req.user.id}, lead_type filter: ${leadType || 'none'}`);
 
     let query = `SELECT c.*, lt.name as lead_type_name, lt.color as lead_type_color,
        s.name as status_name, s.color as status_color
@@ -19,13 +22,22 @@ router.get('/', async (req, res) => {
        LEFT JOIN statuses s ON c.status_id = s.id
        WHERE c.user_id = ?`;
 
+    const params = [req.user.id];
+
     if (!showDeleted) {
       query += ` AND c.deleted_at IS NULL`;
     }
 
+    if (leadType) {
+      query += ` AND c.lead_type = ?`;
+      params.push(leadType);
+    }
+
     query += ` ORDER BY c.created_at DESC`;
 
-    const [contacts] = await pool.query(query, [req.user.id]);
+    const [contacts] = await pool.query(query, params);
+
+    console.log(`✅ Returned ${contacts.length} contacts`);
 
     res.json({ contacts });
   } catch (error) {

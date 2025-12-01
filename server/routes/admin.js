@@ -23,6 +23,8 @@ router.get('/users', async (req, res) => {
              p.contact_import, p.contact_export,
              p.mailer_import, p.mailer_add, p.mailer_sync_all, p.mailer_view,
              p.mailer_sync, p.mailer_start, p.mailer_pause, p.mailer_end, p.mailer_delete,
+             p.email_sync_contacts, p.email_sync_campaigns, p.email_view_campaign,
+             p.email_export_csv, p.email_archive_campaign, p.email_delete_campaign,
              p.allowed_lead_types
       FROM users u
       LEFT JOIN permissions p ON u.id = p.user_id
@@ -513,6 +515,8 @@ router.put('/users/:id/permissions', async (req, res) => {
       contact_import, contact_export,
       mailer_import, mailer_add, mailer_sync_all, mailer_view,
       mailer_sync, mailer_start, mailer_pause, mailer_end, mailer_delete,
+      email_sync_contacts, email_sync_campaigns, email_view_campaign,
+      email_export_csv, email_archive_campaign, email_delete_campaign,
       allowed_lead_types
     } = req.body;
 
@@ -537,6 +541,8 @@ router.put('/users/:id/permissions', async (req, res) => {
            contact_import = ?, contact_export = ?,
            mailer_import = ?, mailer_add = ?, mailer_sync_all = ?, mailer_view = ?,
            mailer_sync = ?, mailer_start = ?, mailer_pause = ?, mailer_end = ?, mailer_delete = ?,
+           email_sync_contacts = ?, email_sync_campaigns = ?, email_view_campaign = ?,
+           email_export_csv = ?, email_archive_campaign = ?, email_delete_campaign = ?,
            allowed_lead_types = ?
        WHERE user_id = ?`,
       [
@@ -560,6 +566,12 @@ router.put('/users/:id/permissions', async (req, res) => {
         mailer_pause ? 1 : 0,
         mailer_end ? 1 : 0,
         mailer_delete ? 1 : 0,
+        email_sync_contacts ? 1 : 0,
+        email_sync_campaigns ? 1 : 0,
+        email_view_campaign ? 1 : 0,
+        email_export_csv ? 1 : 0,
+        email_archive_campaign ? 1 : 0,
+        email_delete_campaign ? 1 : 0,
         allowedLeadTypesJson,
         id
       ]

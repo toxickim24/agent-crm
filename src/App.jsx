@@ -14,13 +14,14 @@ import LeadTypes from './pages/admin/LeadTypes';
 import Statuses from './pages/admin/Statuses';
 import Campaigns from './pages/admin/Campaigns';
 import ApiKeys from './pages/admin/ApiKeys';
+import MailchimpConfig from './pages/admin/MailchimpConfig';
 
 // Client pages
 import ClientDashboard from './pages/client/Dashboard';
 import Home from './pages/client/Home';
 import Contacts from './pages/client/Contacts';
 import CallsTexts from './pages/client/CallsTexts';
-import Emails from './pages/client/Emails';
+import Emails from './pages/client/EmailsEnhanced';
 import Mailers from './pages/client/Mailers';
 import Settings from './pages/client/Settings';
 
@@ -73,6 +74,14 @@ function App() {
               element={
                 <ProtectedRoute requireAdmin={true}>
                   <ApiKeys />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/mailchimp"
+              element={
+                <ProtectedRoute requireAdmin={true}>
+                  <MailchimpConfig />
                 </ProtectedRoute>
               }
             />
