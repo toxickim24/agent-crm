@@ -1246,7 +1246,8 @@ const Contacts = () => {
             }
 
             // Validation 3: Check for duplicate lead_id + lead_type combination
-            if (contact.lead_id && contact.lead_type) {
+            // EXCEPT for lead_type 2 (Refi) which allows duplicates
+            if (contact.lead_id && contact.lead_type && contact.lead_type != 2) {
               const combination = `${contact.lead_id}:${contact.lead_type}`;
               if (existingCombinations.has(combination)) {
                 failReasons.push(`Duplicate lead_id + lead_type combination (${contact.lead_id}) - already exists in database`);

@@ -322,8 +322,7 @@ const ContactSyncModal = ({ isOpen, onClose, leadTypeId, leadTypeName, onSyncCom
           </div>
         ) : (
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-            <div className="max-h-96 overflow-y-auto">
-              <table className="w-full">
+            <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
                   <tr>
                     <th className="px-4 py-3 text-left">
@@ -381,7 +380,6 @@ const ContactSyncModal = ({ isOpen, onClose, leadTypeId, leadTypeName, onSyncCom
                   })}
                 </tbody>
               </table>
-            </div>
           </div>
         )}
 
