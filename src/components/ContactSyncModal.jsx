@@ -222,8 +222,8 @@ const ContactSyncModal = ({ isOpen, onClose, leadTypeId, leadTypeName, onSyncCom
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full p-6 my-8" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -321,9 +321,9 @@ const ContactSyncModal = ({ isOpen, onClose, leadTypeId, leadTypeName, onSyncCom
             <p className="text-gray-600 dark:text-gray-400">No contacts with email addresses found</p>
           </div>
         ) : (
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden max-h-[400px] overflow-y-auto">
             <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
+                <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
                   <tr>
                     <th className="px-4 py-3 text-left">
                       <input
@@ -359,17 +359,17 @@ const ContactSyncModal = ({ isOpen, onClose, leadTypeId, leadTypeName, onSyncCom
                         </td>
                         <td className="px-4 py-3">
                           {syncStatus === 'synced' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-xs">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-xs whitespace-nowrap">
                               <CheckCircle size={12} />
                               Synced
                             </span>
                           ) : syncStatus === 'error' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-full text-xs">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-full text-xs whitespace-nowrap">
                               <XCircle size={12} />
                               Error
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-xs">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-xs whitespace-nowrap">
                               <AlertCircle size={12} />
                               Not Synced
                             </span>
