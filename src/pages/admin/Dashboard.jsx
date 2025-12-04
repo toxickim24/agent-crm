@@ -227,8 +227,9 @@ const AdminDashboard = () => {
       logo_url_light: client.logo_url_light,
       logo_url_dark: client.logo_url_dark
     });
-    setLogoLightPreview(client.logo_url_light);
-    setLogoDarkPreview(client.logo_url_dark);
+    // Prepend API_BASE_URL for existing logos to make them absolute URLs
+    setLogoLightPreview(client.logo_url_light ? `${API_BASE_URL.replace('/api', '')}${client.logo_url_light}` : null);
+    setLogoDarkPreview(client.logo_url_dark ? `${API_BASE_URL.replace('/api', '')}${client.logo_url_dark}` : null);
     setLogoLightFile(null);
     setLogoDarkFile(null);
     setShowEditUser(true);
