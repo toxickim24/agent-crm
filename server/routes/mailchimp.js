@@ -120,16 +120,7 @@ router.post('/admin/configs', async (req, res) => {
       lead_type_id,
       api_key,
       server_prefix,
-      default_audience_id,
-      default_from_name,
-      default_from_email,
-      default_reply_to,
-      auto_sync_enabled,
-      sync_frequency_minutes,
-      enable_campaigns,
-      enable_automations,
-      enable_transactional,
-      enable_ab_testing
+      default_audience_id
     } = req.body;
 
     if (!user_id || !lead_type_id) {
@@ -149,30 +140,12 @@ router.post('/admin/configs', async (req, res) => {
          SET api_key = ?,
              server_prefix = ?,
              default_audience_id = ?,
-             default_from_name = ?,
-             default_from_email = ?,
-             default_reply_to = ?,
-             auto_sync_enabled = ?,
-             sync_frequency_minutes = ?,
-             enable_campaigns = ?,
-             enable_automations = ?,
-             enable_transactional = ?,
-             enable_ab_testing = ?,
              updated_at = NOW()
          WHERE user_id = ? AND lead_type_id = ?`,
         [
           api_key || null,
           server_prefix || null,
           default_audience_id || null,
-          default_from_name || null,
-          default_from_email || null,
-          default_reply_to || null,
-          auto_sync_enabled !== undefined ? auto_sync_enabled : 0,
-          sync_frequency_minutes || 60,
-          enable_campaigns !== undefined ? enable_campaigns : 1,
-          enable_automations !== undefined ? enable_automations : 1,
-          enable_transactional !== undefined ? enable_transactional : 0,
-          enable_ab_testing !== undefined ? enable_ab_testing : 1,
           user_id,
           lead_type_id
         ]
@@ -192,27 +165,15 @@ router.post('/admin/configs', async (req, res) => {
       // Create new config
       const [result] = await pool.query(
         `INSERT INTO mailchimp_configs (
-          user_id, lead_type_id, api_key, server_prefix,
-          default_audience_id, default_from_name, default_from_email, default_reply_to,
-          auto_sync_enabled, sync_frequency_minutes,
-          enable_campaigns, enable_automations, enable_transactional, enable_ab_testing
+          user_id, lead_type_id, api_key, server_prefix, default_audience_id
          )
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?)`,
         [
           user_id,
           lead_type_id,
           api_key || null,
           server_prefix || null,
-          default_audience_id || null,
-          default_from_name || null,
-          default_from_email || null,
-          default_reply_to || null,
-          auto_sync_enabled !== undefined ? auto_sync_enabled : 0,
-          sync_frequency_minutes || 60,
-          enable_campaigns !== undefined ? enable_campaigns : 1,
-          enable_automations !== undefined ? enable_automations : 1,
-          enable_transactional !== undefined ? enable_transactional : 0,
-          enable_ab_testing !== undefined ? enable_ab_testing : 1
+          default_audience_id || null
         ]
       );
 
@@ -394,13 +355,8 @@ router.get('/configs', getUserPermissions, async (req, res) => {
       lead_type_color: config.lead_type_color,
       server_prefix: config.server_prefix,
       default_audience_id: config.default_audience_id,
-      default_from_name: config.default_from_name,
-      default_from_email: config.default_from_email,
       connection_status: config.connection_status,
-      last_connection_check: config.last_connection_check,
-      enable_campaigns: config.enable_campaigns,
-      enable_automations: config.enable_automations,
-      enable_ab_testing: config.enable_ab_testing
+      last_connection_check: config.last_connection_check
     }));
 
     res.json({ configs: sanitizedConfigs });
@@ -520,12 +476,20 @@ router.get('/campaigns', getUserPermissions, async (req, res) => {
     const userId = req.user.id;
     const leadTypeId = req.query.lead_type_id;
     const status = req.query.status;
+    const showDeleted = req.query.showDeleted === 'true';
 
     let query = `
       SELECT mc.*, lt.name as lead_type_name, lt.color as lead_type_color
       FROM mailchimp_campaigns mc
       JOIN lead_types lt ON mc.lead_type_id = lt.id
-      WHERE mc.user_id = ? AND mc.deleted_at IS NULL`;
+      WHERE mc.user_id = ?`;
+
+    // Add deleted_at filter based on showDeleted parameter
+    if (showDeleted) {
+      query += ' AND mc.deleted_at IS NOT NULL';
+    } else {
+      query += ' AND mc.deleted_at IS NULL';
+    }
 
     const params = [userId];
 
@@ -831,13 +795,21 @@ router.get('/contacts', getUserPermissions, async (req, res) => {
   try {
     const userId = req.user.id;
     const leadTypeId = req.query.lead_type_id;
+    const showDeleted = req.query.showDeleted === 'true';
 
     let query = `
       SELECT mc.*,
              lt.name as lead_type_name, lt.color as lead_type_color
       FROM mailchimp_contacts mc
       LEFT JOIN lead_types lt ON mc.lead_type_id = lt.id
-      WHERE mc.user_id = ? AND mc.deleted_at IS NULL`;
+      WHERE mc.user_id = ?`;
+
+    // Add deleted_at filter based on showDeleted parameter
+    if (showDeleted) {
+      query += ' AND mc.deleted_at IS NOT NULL';
+    } else {
+      query += ' AND mc.deleted_at IS NULL';
+    }
 
     const params = [userId];
 
@@ -1219,6 +1191,41 @@ router.delete('/contacts/:id', getUserPermissions, async (req, res) => {
   }
 });
 
+// Restore archived contact
+router.put('/contacts/:id/restore', getUserPermissions, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const contactId = req.params.id;
+
+    console.log(`🔄 Restoring contact ${contactId} for user ${userId}`);
+
+    // Verify contact belongs to user
+    const [contacts] = await pool.query(
+      'SELECT * FROM mailchimp_contacts WHERE id = ? AND user_id = ?',
+      [contactId, userId]
+    );
+
+    if (contacts.length === 0) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+
+    // Restore by setting deleted_at to NULL
+    await pool.query(
+      'UPDATE mailchimp_contacts SET deleted_at = NULL WHERE id = ? AND user_id = ?',
+      [contactId, userId]
+    );
+
+    console.log(`✅ Contact ${contactId} restored successfully`);
+
+    res.json({
+      message: 'Contact restored successfully'
+    });
+  } catch (error) {
+    console.error('Restore contact error:', error);
+    res.status(500).json({ error: 'Failed to restore contact' });
+  }
+});
+
 // Archive individual campaign (soft delete)
 router.delete('/campaigns/:id', getUserPermissions, async (req, res) => {
   try {
@@ -1251,6 +1258,41 @@ router.delete('/campaigns/:id', getUserPermissions, async (req, res) => {
   } catch (error) {
     console.error('Archive campaign error:', error);
     res.status(500).json({ error: 'Failed to archive campaign' });
+  }
+});
+
+// Restore archived campaign
+router.put('/campaigns/:id/restore', getUserPermissions, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const campaignId = req.params.id;
+
+    console.log(`🔄 Restoring campaign ${campaignId} for user ${userId}`);
+
+    // Verify campaign belongs to user
+    const [campaigns] = await pool.query(
+      'SELECT * FROM mailchimp_campaigns WHERE id = ? AND user_id = ?',
+      [campaignId, userId]
+    );
+
+    if (campaigns.length === 0) {
+      return res.status(404).json({ error: 'Campaign not found' });
+    }
+
+    // Restore by setting deleted_at to NULL
+    await pool.query(
+      'UPDATE mailchimp_campaigns SET deleted_at = NULL WHERE id = ? AND user_id = ?',
+      [campaignId, userId]
+    );
+
+    console.log(`✅ Campaign ${campaignId} restored successfully`);
+
+    res.json({
+      message: 'Campaign restored successfully'
+    });
+  } catch (error) {
+    console.error('Restore campaign error:', error);
+    res.status(500).json({ error: 'Failed to restore campaign' });
   }
 });
 

@@ -78,6 +78,10 @@ const EmailsEnhanced = () => {
   const [minClickRate, setMinClickRate] = useState(0);
   const [memberRatingFilter, setMemberRatingFilter] = useState(0);
 
+  // Show deleted state
+  const [showDeletedCampaigns, setShowDeletedCampaigns] = useState(false);
+  const [showDeletedContacts, setShowDeletedContacts] = useState(false);
+
   // Helper function to check email permissions
   const hasEmailPermission = (permission) => {
     if (!user) return false;
@@ -97,7 +101,7 @@ const EmailsEnhanced = () => {
       fetchCampaigns();
       fetchEmailContacts();
     }
-  }, [selectedLeadType]);
+  }, [selectedLeadType, showDeletedCampaigns, showDeletedContacts]);
 
   const fetchConfigs = async () => {
     try {
@@ -128,7 +132,7 @@ const EmailsEnhanced = () => {
 
   const fetchCampaigns = async () => {
     try {
-      const params = selectedLeadType === 'all' ? {} : { lead_type_id: selectedLeadType };
+      const params = selectedLeadType === 'all' ? { showDeleted: showDeletedCampaigns } : { lead_type_id: selectedLeadType, showDeleted: showDeletedCampaigns };
       const response = await axios.get(`${API_BASE_URL}/mailchimp/campaigns`, { params });
       setCampaigns(response.data.campaigns || []);
     } catch (error) {
@@ -138,7 +142,7 @@ const EmailsEnhanced = () => {
 
   const fetchEmailContacts = async () => {
     try {
-      const params = selectedLeadType === 'all' ? {} : { lead_type_id: selectedLeadType };
+      const params = selectedLeadType === 'all' ? { showDeleted: showDeletedContacts } : { lead_type_id: selectedLeadType, showDeleted: showDeletedContacts };
       const response = await axios.get(`${API_BASE_URL}/mailchimp/contacts`, { params });
       setEmailContacts(response.data.contacts || []);
     } catch (error) {
@@ -227,6 +231,54 @@ const EmailsEnhanced = () => {
       toast.error(error.response?.data?.error || 'Failed to sync contacts from Mailchimp');
     } finally {
       setSyncingContacts(false);
+    }
+  };
+
+  const handleRestoreCampaign = async (campaignId) => {
+    try {
+      await axios.put(`${API_BASE_URL}/mailchimp/campaigns/${campaignId}/restore`);
+      toast.success('Campaign restored successfully');
+      fetchCampaigns();
+      fetchStats();
+    } catch (error) {
+      console.error('Restore campaign error:', error);
+      toast.error(error.response?.data?.error || 'Failed to restore campaign');
+    }
+  };
+
+  const handleRestoreContact = async (contactId) => {
+    try {
+      await axios.put(`${API_BASE_URL}/mailchimp/contacts/${contactId}/restore`);
+      toast.success('Contact restored successfully');
+      fetchEmailContacts();
+    } catch (error) {
+      console.error('Restore contact error:', error);
+      toast.error(error.response?.data?.error || 'Failed to restore contact');
+    }
+  };
+
+  const handleDeleteCampaign = async (campaignId) => {
+    if (!confirm('Are you sure you want to delete this campaign?')) return;
+    try {
+      await axios.delete(`${API_BASE_URL}/mailchimp/campaigns/${campaignId}`);
+      toast.success('Campaign deleted successfully');
+      fetchCampaigns();
+      fetchStats();
+    } catch (error) {
+      console.error('Delete campaign error:', error);
+      toast.error(error.response?.data?.error || 'Failed to delete campaign');
+    }
+  };
+
+  const handleDeleteContact = async (contactId) => {
+    if (!confirm('Are you sure you want to delete this contact?')) return;
+    try {
+      await axios.delete(`${API_BASE_URL}/mailchimp/contacts/${contactId}`);
+      toast.success('Contact deleted successfully');
+      fetchEmailContacts();
+    } catch (error) {
+      console.error('Delete contact error:', error);
+      toast.error(error.response?.data?.error || 'Failed to delete contact');
     }
   };
 
@@ -930,6 +982,17 @@ const EmailsEnhanced = () => {
                 </button>
               )}
 
+              {/* Show Deleted Toggle */}
+              <label className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={showDeletedCampaigns}
+                  onChange={(e) => setShowDeletedCampaigns(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Show Deleted</span>
+              </label>
+
               {/* Advanced Filters Button */}
               <button
                 onClick={() => setShowCampaignFilters(!showCampaignFilters)}
@@ -1073,25 +1136,25 @@ const EmailsEnhanced = () => {
                 {hasEmailPermission('email_archive_campaign') && (
                   <button
                     onClick={async () => {
-                      if (confirm(`Are you sure you want to archive ${selectedCampaigns.length} campaign(s)?`)) {
+                      if (confirm(`Are you sure you want to delete ${selectedCampaigns.length} campaign(s)?`)) {
                         try {
                           await Promise.all(
                             selectedCampaigns.map(id =>
                               axios.delete(`${API_BASE_URL}/mailchimp/campaigns/${id}`)
                             )
                           );
-                          toast.success(`Archived ${selectedCampaigns.length} campaign(s) successfully`);
+                          toast.success(`Deleted ${selectedCampaigns.length} campaign(s) successfully`);
                           setSelectedCampaigns([]);
                           fetchCampaigns();
                         } catch (error) {
-                          toast.error('Failed to archive campaigns');
+                          toast.error('Failed to delete campaigns');
                         }
                       }
                     }}
                     className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
                   >
-                    <Archive size={16} />
-                    Archive Selected
+                    <Trash2 size={16} />
+                    Delete Selected
                   </button>
                 )}
                 <button
@@ -1261,54 +1324,61 @@ const EmailsEnhanced = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        {hasEmailPermission('email_view_campaign') && (
-                          <button
-                            onClick={() => {
-                              setSelectedCampaign(campaign);
-                              setShowCampaignModal(true);
-                            }}
-                            className="text-blue-600 dark:text-blue-400 hover:underline text-sm flex items-center gap-1"
-                            title="View Details"
-                          >
-                            <Eye size={14} />
-                            View
-                          </button>
-                        )}
-                        {hasEmailPermission('email_sync_campaigns') && (
-                          <button
-                            onClick={async () => {
-                              try {
-                                await axios.post(`${API_BASE_URL}/mailchimp/campaigns/${campaign.id}/resync`);
-                                toast.success('Campaign resynced successfully');
-                                fetchCampaigns();
-                              } catch (error) {
-                                toast.error(error.response?.data?.error || 'Failed to resync campaign');
-                              }
-                            }}
-                            className="text-green-600 dark:text-green-400 hover:underline text-sm flex items-center gap-1"
-                            title="Resync"
-                          >
-                            <RotateCw size={14} />
-                          </button>
-                        )}
-                        {hasEmailPermission('email_archive_campaign') && (
-                          <button
-                            onClick={async () => {
-                              if (confirm('Are you sure you want to archive this campaign from Mailchimp sync?')) {
-                                try {
-                                  await axios.delete(`${API_BASE_URL}/mailchimp/campaigns/${campaign.id}`);
-                                  toast.success('Campaign archived successfully');
-                                  fetchCampaigns();
-                                } catch (error) {
-                                  toast.error(error.response?.data?.error || 'Failed to archive campaign');
-                                }
-                              }
-                            }}
-                            className="text-red-600 dark:text-red-400 hover:underline text-sm flex items-center gap-1"
-                            title="Archive"
-                          >
-                            <Archive size={14} />
-                          </button>
+                        {campaign.deleted_at ? (
+                          // Show restore button for deleted campaigns
+                          hasEmailPermission('email_archive_campaign') && (
+                            <button
+                              onClick={() => handleRestoreCampaign(campaign.id)}
+                              className="text-green-600 dark:text-green-400 hover:underline text-sm flex items-center gap-1"
+                              title="Restore"
+                            >
+                              <RotateCw size={14} />
+                              Restore
+                            </button>
+                          )
+                        ) : (
+                          // Show normal actions for active campaigns
+                          <>
+                            {hasEmailPermission('email_view_campaign') && (
+                              <button
+                                onClick={() => {
+                                  setSelectedCampaign(campaign);
+                                  setShowCampaignModal(true);
+                                }}
+                                className="text-blue-600 dark:text-blue-400 hover:underline text-sm flex items-center gap-1"
+                                title="View Details"
+                              >
+                                <Eye size={14} />
+                                View
+                              </button>
+                            )}
+                            {hasEmailPermission('email_sync_campaigns') && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await axios.post(`${API_BASE_URL}/mailchimp/campaigns/${campaign.id}/resync`);
+                                    toast.success('Campaign resynced successfully');
+                                    fetchCampaigns();
+                                  } catch (error) {
+                                    toast.error(error.response?.data?.error || 'Failed to resync campaign');
+                                  }
+                                }}
+                                className="text-green-600 dark:text-green-400 hover:underline text-sm flex items-center gap-1"
+                                title="Resync"
+                              >
+                                <RotateCw size={14} />
+                              </button>
+                            )}
+                            {hasEmailPermission('email_archive_campaign') && (
+                              <button
+                                onClick={() => handleDeleteCampaign(campaign.id)}
+                                className="text-red-600 dark:text-red-400 hover:underline text-sm flex items-center gap-1"
+                                title="Delete"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>
@@ -1364,6 +1434,17 @@ const EmailsEnhanced = () => {
                   Export CSV
                 </button>
               )}
+
+              {/* Show Deleted Toggle */}
+              <label className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={showDeletedContacts}
+                  onChange={(e) => setShowDeletedContacts(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Show Deleted</span>
+              </label>
 
               {/* Advanced Filters Button */}
               <button
@@ -1470,25 +1551,25 @@ const EmailsEnhanced = () => {
                 {hasEmailPermission('email_archive_campaign') && (
                   <button
                     onClick={async () => {
-                      if (confirm(`Are you sure you want to archive ${selectedContacts.length} contact(s)?`)) {
+                      if (confirm(`Are you sure you want to delete ${selectedContacts.length} contact(s)?`)) {
                         try {
                           await Promise.all(
                             selectedContacts.map(id =>
                               axios.delete(`${API_BASE_URL}/mailchimp/contacts/${id}`)
                             )
                           );
-                          toast.success(`Archived ${selectedContacts.length} contact(s) successfully`);
+                          toast.success(`Deleted ${selectedContacts.length} contact(s) successfully`);
                           setSelectedContacts([]);
                           fetchEmailContacts();
                         } catch (error) {
-                          toast.error('Failed to archive contacts');
+                          toast.error('Failed to delete contacts');
                         }
                       }
                     }}
                     className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
                   >
-                    <Archive size={16} />
-                    Archive Selected
+                    <Trash2 size={16} />
+                    Delete Selected
                   </button>
                 )}
                 <button
@@ -1698,54 +1779,61 @@ const EmailsEnhanced = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        {hasEmailPermission('email_view_campaign') && (
-                          <button
-                            onClick={() => {
-                              setSelectedContact(contact);
-                              setShowContactDetailsModal(true);
-                            }}
-                            className="text-blue-600 dark:text-blue-400 hover:underline text-sm flex items-center gap-1"
-                            title="View Details"
-                          >
-                            <Eye size={14} />
-                            View
-                          </button>
-                        )}
-                        {hasEmailPermission('email_sync_contacts') && (
-                          <button
-                            onClick={async () => {
-                              try {
-                                await axios.post(`${API_BASE_URL}/mailchimp/contacts/${contact.id}/resync`);
-                                toast.success('Contact resynced successfully');
-                                fetchEmailContacts();
-                              } catch (error) {
-                                toast.error(error.response?.data?.error || 'Failed to resync contact');
-                              }
-                            }}
-                            className="text-green-600 dark:text-green-400 hover:underline text-sm flex items-center gap-1"
-                            title="Resync"
-                          >
-                            <RotateCw size={14} />
-                          </button>
-                        )}
-                        {hasEmailPermission('email_archive_campaign') && (
-                          <button
-                            onClick={async () => {
-                              if (confirm('Are you sure you want to archive this contact from Mailchimp sync?')) {
-                                try {
-                                  await axios.delete(`${API_BASE_URL}/mailchimp/contacts/${contact.id}`);
-                                  toast.success('Contact archived successfully');
-                                  fetchEmailContacts();
-                                } catch (error) {
-                                  toast.error(error.response?.data?.error || 'Failed to archive contact');
-                                }
-                              }
-                            }}
-                            className="text-red-600 dark:text-red-400 hover:underline text-sm flex items-center gap-1"
-                            title="Archive"
-                          >
-                            <Archive size={14} />
-                          </button>
+                        {contact.deleted_at ? (
+                          // Show restore button for deleted contacts
+                          hasEmailPermission('email_archive_campaign') && (
+                            <button
+                              onClick={() => handleRestoreContact(contact.id)}
+                              className="text-green-600 dark:text-green-400 hover:underline text-sm flex items-center gap-1"
+                              title="Restore"
+                            >
+                              <RotateCw size={14} />
+                              Restore
+                            </button>
+                          )
+                        ) : (
+                          // Show normal actions for active contacts
+                          <>
+                            {hasEmailPermission('email_view_campaign') && (
+                              <button
+                                onClick={() => {
+                                  setSelectedContact(contact);
+                                  setShowContactDetailsModal(true);
+                                }}
+                                className="text-blue-600 dark:text-blue-400 hover:underline text-sm flex items-center gap-1"
+                                title="View Details"
+                              >
+                                <Eye size={14} />
+                                View
+                              </button>
+                            )}
+                            {hasEmailPermission('email_sync_contacts') && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await axios.post(`${API_BASE_URL}/mailchimp/contacts/${contact.id}/resync`);
+                                    toast.success('Contact resynced successfully');
+                                    fetchEmailContacts();
+                                  } catch (error) {
+                                    toast.error(error.response?.data?.error || 'Failed to resync contact');
+                                  }
+                                }}
+                                className="text-green-600 dark:text-green-400 hover:underline text-sm flex items-center gap-1"
+                                title="Resync"
+                              >
+                                <RotateCw size={14} />
+                              </button>
+                            )}
+                            {hasEmailPermission('email_archive_campaign') && (
+                              <button
+                                onClick={() => handleDeleteContact(contact.id)}
+                                className="text-red-600 dark:text-red-400 hover:underline text-sm flex items-center gap-1"
+                                title="Delete"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>

@@ -31,6 +31,7 @@ const initDB = async () => {
         role ENUM('admin', 'client') NOT NULL DEFAULT 'client',
         status ENUM('pending', 'active', 'suspended') NOT NULL DEFAULT 'pending',
         product_updates BOOLEAN DEFAULT 0,
+        logo_url VARCHAR(500) NULL,
         deleted_at TIMESTAMP NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -41,6 +42,12 @@ const initDB = async () => {
     await connection.query(`
       ALTER TABLE users
       ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL
+    `).catch(() => {});
+
+    // Add logo_url column to existing users table if it doesn't exist
+    await connection.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500) NULL
     `).catch(() => {});
 
     // Permissions table

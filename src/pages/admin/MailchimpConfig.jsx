@@ -7,7 +7,6 @@ import Logo from '../../components/Logo';
 import API_BASE_URL from '../../config/api';
 import {
   ArrowLeft,
-  Mail,
   Key,
   Check,
   X,
@@ -45,16 +44,7 @@ const MailchimpConfig = () => {
   const [formData, setFormData] = useState({
     api_key: '',
     server_prefix: '',
-    default_audience_id: '',
-    default_from_name: '',
-    default_from_email: '',
-    default_reply_to: '',
-    auto_sync_enabled: false,
-    sync_frequency_minutes: 60,
-    enable_campaigns: true,
-    enable_automations: true,
-    enable_transactional: false,
-    enable_ab_testing: true
+    default_audience_id: ''
   });
 
   useEffect(() => {
@@ -107,32 +97,14 @@ const MailchimpConfig = () => {
         setFormData({
           api_key: response.data.config.api_key || '',
           server_prefix: response.data.config.server_prefix || '',
-          default_audience_id: response.data.config.default_audience_id || '',
-          default_from_name: response.data.config.default_from_name || '',
-          default_from_email: response.data.config.default_from_email || '',
-          default_reply_to: response.data.config.default_reply_to || '',
-          auto_sync_enabled: Boolean(response.data.config.auto_sync_enabled),
-          sync_frequency_minutes: response.data.config.sync_frequency_minutes || 60,
-          enable_campaigns: Boolean(response.data.config.enable_campaigns),
-          enable_automations: Boolean(response.data.config.enable_automations),
-          enable_transactional: Boolean(response.data.config.enable_transactional),
-          enable_ab_testing: Boolean(response.data.config.enable_ab_testing)
+          default_audience_id: response.data.config.default_audience_id || ''
         });
       } else {
         setConfig(null);
         setFormData({
           api_key: '',
           server_prefix: '',
-          default_audience_id: '',
-          default_from_name: '',
-          default_from_email: '',
-          default_reply_to: '',
-          auto_sync_enabled: false,
-          sync_frequency_minutes: 60,
-          enable_campaigns: true,
-          enable_automations: true,
-          enable_transactional: false,
-          enable_ab_testing: true
+          default_audience_id: ''
         });
       }
       setTestResult(null);
@@ -270,10 +242,6 @@ const MailchimpConfig = () => {
         <div className="flex items-center justify-between px-6 py-3">
           <div className="flex items-center gap-4">
             <Logo className="h-8" />
-            <div className="flex items-center gap-2">
-              <Mail className="text-blue-600" size={24} />
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Mailchimp Configuration</h1>
-            </div>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -317,6 +285,14 @@ const MailchimpConfig = () => {
       </header>
 
       <div className="max-w-7xl mx-auto p-6 space-y-6">
+        {/* Title and Description */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Mailchimp Configuration</h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Configure Mailchimp integration settings for each user and lead type. Connect your Mailchimp account to sync campaigns and track email performance.
+          </p>
+        </div>
+
         {/* User and Lead Type Selection */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
@@ -482,127 +458,6 @@ const MailchimpConfig = () => {
                 </select>
               </div>
             )}
-
-            {/* Default Sender Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Default From Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.default_from_name}
-                  onChange={(e) => setFormData({ ...formData, default_from_name: e.target.value })}
-                  placeholder="Your Company Name"
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Default From Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.default_from_email}
-                  onChange={(e) => setFormData({ ...formData, default_from_email: e.target.value })}
-                  placeholder="your@email.com"
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Default Reply-To Email
-              </label>
-              <input
-                type="email"
-                value={formData.default_reply_to}
-                onChange={(e) => setFormData({ ...formData, default_reply_to: e.target.value })}
-                placeholder="reply@yourdomain.com"
-                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
-              />
-            </div>
-
-            {/* Sync Settings */}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <h3 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Sync Settings</h3>
-
-              <div className="space-y-4">
-                <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={formData.auto_sync_enabled}
-                    onChange={(e) => setFormData({ ...formData, auto_sync_enabled: e.target.checked })}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Enable automatic sync</span>
-                </label>
-
-                {formData.auto_sync_enabled && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Sync Frequency (minutes)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.sync_frequency_minutes}
-                      onChange={(e) => setFormData({ ...formData, sync_frequency_minutes: parseInt(e.target.value) })}
-                      min="15"
-                      max="1440"
-                      className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Feature Toggles */}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <h3 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Enabled Features</h3>
-
-              <div className="space-y-3">
-                <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={formData.enable_campaigns}
-                    onChange={(e) => setFormData({ ...formData, enable_campaigns: e.target.checked })}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Email Campaigns</span>
-                </label>
-
-                <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={formData.enable_automations}
-                    onChange={(e) => setFormData({ ...formData, enable_automations: e.target.checked })}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Automation Workflows</span>
-                </label>
-
-                <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={formData.enable_ab_testing}
-                    onChange={(e) => setFormData({ ...formData, enable_ab_testing: e.target.checked })}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">A/B Testing</span>
-                </label>
-
-                <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={formData.enable_transactional}
-                    onChange={(e) => setFormData({ ...formData, enable_transactional: e.target.checked })}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Transactional Emails (Mandrill)</span>
-                </label>
-              </div>
-            </div>
 
             {/* Save Button */}
             <div className="pt-4 flex gap-3">

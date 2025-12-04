@@ -1,8 +1,47 @@
 import express from 'express';
 import pool from '../config/database.js';
 import { authenticateToken, isAdmin, isActive } from '../middleware/auth.js';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
+
+// Configure multer for logo upload
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../../public/uploads/logos');
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'logo-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|svg/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed (jpeg, jpg, png, gif, svg)'));
+    }
+  }
+});
 
 // Apply authentication and admin middleware to all routes
 router.use((req, res, next) => {
@@ -17,7 +56,7 @@ router.get('/users', async (req, res) => {
     const showDeleted = req.query.showDeleted === 'true';
 
     let query = `
-      SELECT u.id, u.name, u.email, u.role, u.status, u.product_updates, u.deleted_at, u.created_at,
+      SELECT u.id, u.name, u.email, u.role, u.status, u.product_updates, u.logo_url_light, u.logo_url_dark, u.deleted_at, u.created_at,
              p.home, p.contacts, p.calls_texts, p.emails, p.mailers,
              p.contact_view, p.contact_add, p.contact_edit, p.contact_delete,
              p.contact_import, p.contact_export,
@@ -463,6 +502,97 @@ router.post('/apikeyslist/:userId/:keyId/restore', async (req, res) => {
 
 // ========== User Management Routes ==========
 
+// Upload user logo (light or dark mode)
+router.post('/users/:id/logo', upload.single('logo'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { mode } = req.body; // 'light' or 'dark'
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded.' });
+    }
+
+    if (!mode || !['light', 'dark'].includes(mode)) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'Mode must be either "light" or "dark".' });
+    }
+
+    // Create the logo URL path
+    const logoUrl = `/uploads/logos/${req.file.filename}`;
+
+    // Update user's logo_url_light or logo_url_dark in database
+    const column = mode === 'light' ? 'logo_url_light' : 'logo_url_dark';
+    const [result] = await pool.query(
+      `UPDATE users SET ${column} = ? WHERE id = ? AND role = ?`,
+      [logoUrl, id, 'client']
+    );
+
+    if (result.affectedRows === 0) {
+      // Delete the uploaded file if user not found
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    res.json({
+      message: `${mode.charAt(0).toUpperCase() + mode.slice(1)} mode logo uploaded successfully.`,
+      logo_url: logoUrl,
+      mode
+    });
+  } catch (error) {
+    // Delete the uploaded file if there was an error
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    console.error('Upload logo error:', error);
+    res.status(500).json({ error: error.message || 'Server error.' });
+  }
+});
+
+// Delete user logo (light or dark mode)
+router.delete('/users/:id/logo', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { mode } = req.query; // 'light' or 'dark'
+
+    if (!mode || !['light', 'dark'].includes(mode)) {
+      return res.status(400).json({ error: 'Mode must be either "light" or "dark".' });
+    }
+
+    const column = mode === 'light' ? 'logo_url_light' : 'logo_url_dark';
+
+    // Get current logo URL
+    const [users] = await pool.query(
+      `SELECT ${column} as logo_url FROM users WHERE id = ? AND role = ?`,
+      [id, 'client']
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const logoUrl = users[0].logo_url;
+
+    // Update user's logo to null
+    await pool.query(
+      `UPDATE users SET ${column} = NULL WHERE id = ? AND role = ?`,
+      [id, 'client']
+    );
+
+    // Delete the file if it exists
+    if (logoUrl) {
+      const filePath = path.join(__dirname, '../../public', logoUrl);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    res.json({ message: `${mode.charAt(0).toUpperCase() + mode.slice(1)} mode logo deleted successfully.` });
+  } catch (error) {
+    console.error('Delete logo error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
 // Approve user
 router.post('/users/:id/approve', async (req, res) => {
   try {
@@ -695,15 +825,15 @@ router.put('/users/:id/api-config', async (req, res) => {
 router.put('/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, status } = req.body;
+    const { name, email, status, logo_url_light, logo_url_dark } = req.body;
 
     if (!name || !email) {
       return res.status(400).json({ error: 'Name and email are required.' });
     }
 
     const [result] = await pool.query(
-      'UPDATE users SET name = ?, email = ?, status = ? WHERE id = ? AND role = ?',
-      [name, email, status || 'active', id, 'client']
+      'UPDATE users SET name = ?, email = ?, status = ?, logo_url_light = ?, logo_url_dark = ? WHERE id = ? AND role = ?',
+      [name, email, status || 'active', logo_url_light || null, logo_url_dark || null, id, 'client']
     );
 
     if (result.affectedRows === 0) {

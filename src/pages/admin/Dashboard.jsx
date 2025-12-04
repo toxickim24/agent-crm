@@ -22,7 +22,9 @@ import {
   EyeOff,
   Tag,
   Key,
-  Mail
+  Mail,
+  Upload,
+  X
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -36,7 +38,12 @@ const AdminDashboard = () => {
   const [showEditUser, setShowEditUser] = useState(false);
   const [apiConfig, setApiConfig] = useState({});
   const [permissions, setPermissions] = useState({});
-  const [editUserData, setEditUserData] = useState({ name: '', email: '', status: 'active' });
+  const [editUserData, setEditUserData] = useState({ name: '', email: '', status: 'active', logo_url_light: null, logo_url_dark: null });
+  const [logoLightFile, setLogoLightFile] = useState(null);
+  const [logoDarkFile, setLogoDarkFile] = useState(null);
+  const [logoLightPreview, setLogoLightPreview] = useState(null);
+  const [logoDarkPreview, setLogoDarkPreview] = useState(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [leadTypes, setLeadTypes] = useState([]);
   const [showDeleted, setShowDeleted] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -216,21 +223,145 @@ const AdminDashboard = () => {
     setEditUserData({
       name: client.name,
       email: client.email,
-      status: client.status
+      status: client.status,
+      logo_url_light: client.logo_url_light,
+      logo_url_dark: client.logo_url_dark
     });
+    setLogoLightPreview(client.logo_url_light);
+    setLogoDarkPreview(client.logo_url_dark);
+    setLogoLightFile(null);
+    setLogoDarkFile(null);
     setShowEditUser(true);
   };
 
   const handleSaveUser = async () => {
     try {
-      await axios.put(`${API_BASE_URL}/admin/users/${selectedClient.id}`, editUserData);
+      let logoUrlLight = editUserData.logo_url_light;
+      let logoUrlDark = editUserData.logo_url_dark;
+
+      setUploadingLogo(true);
+
+      // Upload light mode logo if a new file was selected
+      if (logoLightFile) {
+        const formData = new FormData();
+        formData.append('logo', logoLightFile);
+        formData.append('mode', 'light');
+
+        const uploadResponse = await axios.post(
+          `${API_BASE_URL}/admin/users/${selectedClient.id}/logo`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          }
+        );
+        logoUrlLight = uploadResponse.data.logo_url;
+      }
+
+      // Upload dark mode logo if a new file was selected
+      if (logoDarkFile) {
+        const formData = new FormData();
+        formData.append('logo', logoDarkFile);
+        formData.append('mode', 'dark');
+
+        const uploadResponse = await axios.post(
+          `${API_BASE_URL}/admin/users/${selectedClient.id}/logo`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          }
+        );
+        logoUrlDark = uploadResponse.data.logo_url;
+      }
+
+      setUploadingLogo(false);
+
+      // Update user details
+      await axios.put(`${API_BASE_URL}/admin/users/${selectedClient.id}`, {
+        ...editUserData,
+        logo_url_light: logoUrlLight,
+        logo_url_dark: logoUrlDark
+      });
+
       fetchClients();
       setShowEditUser(false);
       setSelectedClient(null);
-      alert('User updated successfully');
+      setLogoLightFile(null);
+      setLogoDarkFile(null);
+      setLogoLightPreview(null);
+      setLogoDarkPreview(null);
+      toast.success('User updated successfully');
     } catch (error) {
       console.error('Failed to update user:', error);
-      alert(error.response?.data?.error || 'Failed to update user');
+      setUploadingLogo(false);
+      toast.error(error.response?.data?.error || 'Failed to update user');
+    }
+  };
+
+  const handleLogoChange = (e, mode) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size must be less than 5MB');
+        return;
+      }
+
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/svg+xml'];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error('Only image files (JPEG, PNG, GIF, SVG) are allowed');
+        return;
+      }
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (mode === 'light') {
+          setLogoLightFile(file);
+          setLogoLightPreview(reader.result);
+        } else {
+          setLogoDarkFile(file);
+          setLogoDarkPreview(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = async (mode) => {
+    if (!selectedClient) return;
+
+    const logoUrl = mode === 'light' ? editUserData.logo_url_light : editUserData.logo_url_dark;
+
+    if (logoUrl) {
+      try {
+        await axios.delete(`${API_BASE_URL}/admin/users/${selectedClient.id}/logo?mode=${mode}`);
+        if (mode === 'light') {
+          setEditUserData({ ...editUserData, logo_url_light: null });
+          setLogoLightPreview(null);
+          setLogoLightFile(null);
+        } else {
+          setEditUserData({ ...editUserData, logo_url_dark: null });
+          setLogoDarkPreview(null);
+          setLogoDarkFile(null);
+        }
+        toast.success(`${mode.charAt(0).toUpperCase() + mode.slice(1)} mode logo removed successfully`);
+      } catch (error) {
+        console.error('Failed to remove logo:', error);
+        toast.error('Failed to remove logo');
+      }
+    } else {
+      if (mode === 'light') {
+        setLogoLightPreview(null);
+        setLogoLightFile(null);
+      } else {
+        setLogoDarkPreview(null);
+        setLogoDarkFile(null);
+      }
     }
   };
 
@@ -1132,13 +1263,93 @@ const AdminDashboard = () => {
                   <option value="suspended">Suspended</option>
                 </select>
               </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Light Mode Logo
+                  </label>
+                  {logoLightPreview && (
+                    <div className="mb-3 relative inline-block">
+                      <img
+                        src={logoLightPreview}
+                        alt="Light mode logo preview"
+                        className="h-16 w-auto border border-gray-300 dark:border-gray-600 rounded bg-white p-2"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLogo('light')}
+                        className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 cursor-pointer">
+                      <div className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <Upload size={18} />
+                        <span className="text-sm">{logoLightFile ? logoLightFile.name : 'Choose light mode logo'}</span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleLogoChange(e, 'light')}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Logo for light backgrounds (Max 5MB)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Dark Mode Logo
+                  </label>
+                  {logoDarkPreview && (
+                    <div className="mb-3 relative inline-block">
+                      <img
+                        src={logoDarkPreview}
+                        alt="Dark mode logo preview"
+                        className="h-16 w-auto border border-gray-300 dark:border-gray-600 rounded bg-gray-800 p-2"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLogo('dark')}
+                        className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 cursor-pointer">
+                      <div className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <Upload size={18} />
+                        <span className="text-sm">{logoDarkFile ? logoDarkFile.name : 'Choose dark mode logo'}</span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleLogoChange(e, 'dark')}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Logo for dark backgrounds (Max 5MB)
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={handleSaveUser}
-                className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                disabled={uploadingLogo}
+                className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Save Changes
+                {uploadingLogo ? 'Uploading Logo...' : 'Save Changes'}
               </button>
               <button
                 onClick={() => {

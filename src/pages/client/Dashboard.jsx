@@ -52,7 +52,7 @@ const ClientDashboard = () => {
             >
               {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
-            <Logo className="h-8" />
+            <Logo className="h-16" />
           </div>
 
           <div className="flex items-center gap-3">
