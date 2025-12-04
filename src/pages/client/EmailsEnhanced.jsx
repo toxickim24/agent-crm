@@ -34,7 +34,6 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { toast } from 'sonner';
-import ContactSyncModal from '../../components/ContactSyncModal';
 import ContactDetailsModal from '../../components/ContactDetailsModal';
 import CampaignDetailsModal from '../../components/CampaignDetailsModal';
 import CampaignComparisonModal from '../../components/CampaignComparisonModal';
@@ -48,13 +47,13 @@ const EmailsEnhanced = () => {
   const [emailContacts, setEmailContacts] = useState([]);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
+  const [syncingContacts, setSyncingContacts] = useState(false);
+  const [syncingCampaigns, setSyncingCampaigns] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [contactSearchQuery, setContactSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [contactStatusFilter, setContactStatusFilter] = useState('all');
   const [showCampaignModal, setShowCampaignModal] = useState(false);
-  const [showContactSyncModal, setShowContactSyncModal] = useState(false);
   const [showContactDetailsModal, setShowContactDetailsModal] = useState(false);
   const [showComparisonModal, setShowComparisonModal] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
@@ -190,7 +189,7 @@ const EmailsEnhanced = () => {
       return;
     }
 
-    setSyncing(true);
+    setSyncingCampaigns(true);
     try {
       const response = await axios.post(`${API_BASE_URL}/mailchimp/campaigns/sync`, {
         lead_type_id: selectedLeadType
@@ -203,7 +202,31 @@ const EmailsEnhanced = () => {
       console.error('Sync error:', error);
       toast.error(error.response?.data?.error || 'Failed to sync campaigns');
     } finally {
-      setSyncing(false);
+      setSyncingCampaigns(false);
+    }
+  };
+
+  const handleSyncContacts = async () => {
+    if (!selectedLeadType) {
+      toast.error('Please select a lead type');
+      return;
+    }
+
+    setSyncingContacts(true);
+    toast.info(`Syncing contacts from Mailchimp ${selectedConfig?.lead_type_name}...`);
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/mailchimp/contacts/sync`, {
+        lead_type_id: selectedLeadType
+      });
+      toast.success(response.data.message);
+      fetchStats();
+      fetchEmailContacts();
+    } catch (error) {
+      console.error('Sync contacts error:', error);
+      toast.error(error.response?.data?.error || 'Failed to sync contacts from Mailchimp');
+    } finally {
+      setSyncingContacts(false);
     }
   };
 
@@ -249,7 +272,7 @@ const EmailsEnhanced = () => {
 
   // CSV Export functions
   const exportCampaignsToCSV = () => {
-    const headers = ['Campaign', 'Lead Type', 'Status', 'Emails Sent', 'Unique Opens', 'Unique Clicks', 'Open Rate', 'Click Rate', 'Send Time'];
+    const headers = ['Campaign', 'Lead Type', 'Status', 'Emails Sent', 'Unique Opens', 'Unique Clicks', 'Open Rate', 'Click Rate', 'Unsubscribe Rate', 'Delivery Rate', 'Send Time'];
     const rows = filteredCampaigns.map(campaign => [
       campaign.subject_line || campaign.title || 'Untitled',
       campaign.lead_type_name || '',
@@ -259,6 +282,8 @@ const EmailsEnhanced = () => {
       campaign.unique_clicks || 0,
       `${typeof campaign.open_rate === 'number' ? campaign.open_rate.toFixed(2) : (campaign.open_rate || '0')}%`,
       `${typeof campaign.click_rate === 'number' ? campaign.click_rate.toFixed(2) : (campaign.click_rate || '0')}%`,
+      `${typeof campaign.unsubscribe_rate === 'number' ? campaign.unsubscribe_rate.toFixed(2) : (campaign.unsubscribe_rate || '0')}%`,
+      `${typeof campaign.delivery_rate === 'number' ? campaign.delivery_rate.toFixed(2) : (campaign.delivery_rate || '0')}%`,
       campaign.send_time ? new Date(campaign.send_time).toLocaleString() : 'N/A'
     ]);
 
@@ -280,16 +305,46 @@ const EmailsEnhanced = () => {
   };
 
   const exportContactsToCSV = () => {
-    const headers = ['Name', 'Email', 'Lead Type', 'Property', 'Status', 'Member Rating', 'Last Synced'];
-    const rows = filteredEmailContacts.map(contact => [
-      `${contact.contact_first_name || ''} ${contact.contact_last_name || ''}`.trim(),
-      contact.email_address || '',
-      contact.lead_type_name || '',
-      contact.property_address_full || '',
-      contact.status || '',
-      contact.member_rating || 0,
-      contact.last_synced_at ? new Date(contact.last_synced_at).toLocaleString() : 'Never'
-    ]);
+    const headers = ['Name', 'Email', 'Address', 'City', 'State', 'Zip', 'Lead Type', 'Status', 'Member Rating', 'Signup Date', 'Last Synced'];
+    const rows = filteredEmailContacts.map(contact => {
+      const mergeFields = typeof contact.merge_fields === 'string'
+        ? JSON.parse(contact.merge_fields)
+        : (contact.merge_fields || {});
+      const firstName = mergeFields.FNAME || '';
+      const lastName = mergeFields.LNAME || '';
+      const fullName = `${firstName} ${lastName}`.trim() || 'N/A';
+
+      // Handle ADDRESS - can be string or object
+      let address = '';
+      let city = mergeFields.CITY || '';
+      let state = mergeFields.STATE || '';
+      let zip = mergeFields.ZIP || '';
+
+      if (mergeFields.ADDRESS) {
+        if (typeof mergeFields.ADDRESS === 'object') {
+          address = mergeFields.ADDRESS.addr1 || '';
+          if (!mergeFields.CITY && mergeFields.ADDRESS.city) city = mergeFields.ADDRESS.city;
+          if (!mergeFields.STATE && mergeFields.ADDRESS.state) state = mergeFields.ADDRESS.state;
+          if (!mergeFields.ZIP && mergeFields.ADDRESS.zip) zip = mergeFields.ADDRESS.zip;
+        } else {
+          address = mergeFields.ADDRESS;
+        }
+      }
+
+      return [
+        fullName,
+        contact.email_address || '',
+        address,
+        city,
+        state,
+        zip,
+        contact.lead_type_name || '',
+        contact.status || '',
+        contact.member_rating || 0,
+        contact.timestamp_signup ? new Date(contact.timestamp_signup).toLocaleDateString() : 'N/A',
+        contact.last_synced_at ? new Date(contact.last_synced_at).toLocaleString() : 'Never'
+      ];
+    });
 
     const csvContent = [
       headers.join(','),
@@ -350,7 +405,7 @@ const EmailsEnhanced = () => {
       if (bVal === null || bVal === undefined) return -1;
 
       // Parse numbers for numeric fields
-      if (['emails_sent', 'unique_opens', 'unique_clicks', 'open_rate', 'click_rate'].includes(campaignSortField)) {
+      if (['emails_sent', 'unique_opens', 'unique_clicks', 'open_rate', 'click_rate', 'unsubscribe_rate', 'delivery_rate'].includes(campaignSortField)) {
         aVal = parseFloat(aVal) || 0;
         bVal = parseFloat(bVal) || 0;
       }
@@ -369,15 +424,50 @@ const EmailsEnhanced = () => {
   const filteredEmailContacts = emailContacts
     .filter(contact => {
       const searchLower = contactSearchQuery.toLowerCase();
+
+      // Extract name and address from merge_fields
+      let firstName = '';
+      let lastName = '';
+      let address = '';
+      let city = '';
+      let state = '';
+      let zip = '';
+      try {
+        const mergeFields = typeof contact.merge_fields === 'string'
+          ? JSON.parse(contact.merge_fields)
+          : (contact.merge_fields || {});
+        firstName = mergeFields.FNAME || '';
+        lastName = mergeFields.LNAME || '';
+
+        // Handle ADDRESS - can be string or object
+        city = mergeFields.CITY || '';
+        state = mergeFields.STATE || '';
+        zip = mergeFields.ZIP || '';
+
+        if (mergeFields.ADDRESS) {
+          if (typeof mergeFields.ADDRESS === 'object') {
+            address = mergeFields.ADDRESS.addr1 || '';
+            if (!mergeFields.CITY && mergeFields.ADDRESS.city) city = mergeFields.ADDRESS.city;
+            if (!mergeFields.STATE && mergeFields.ADDRESS.state) state = mergeFields.ADDRESS.state;
+            if (!mergeFields.ZIP && mergeFields.ADDRESS.zip) zip = mergeFields.ADDRESS.zip;
+          } else {
+            address = mergeFields.ADDRESS;
+          }
+        }
+      } catch (e) {
+        // If parsing fails, just use empty strings
+      }
+
       const matchesSearch = (
-        contact.contact_first_name?.toLowerCase().includes(searchLower) ||
-        contact.contact_last_name?.toLowerCase().includes(searchLower) ||
+        firstName.toLowerCase().includes(searchLower) ||
+        lastName.toLowerCase().includes(searchLower) ||
         contact.email_address?.toLowerCase().includes(searchLower) ||
-        contact.property_address_full?.toLowerCase().includes(searchLower)
+        address.toLowerCase().includes(searchLower) ||
+        city.toLowerCase().includes(searchLower) ||
+        state.toLowerCase().includes(searchLower) ||
+        zip.toLowerCase().includes(searchLower)
       );
-      const matchesStatus = contactStatusFilter === 'all' ||
-                           (contactStatusFilter === 'synced' && contact.sync_status === 'synced') ||
-                           (contactStatusFilter === 'error' && contact.sync_status === 'error');
+      const matchesStatus = contactStatusFilter === 'all' || contact.status === contactStatusFilter;
 
       // Advanced filters
       let matchesDateRange = true;
@@ -484,21 +574,22 @@ const EmailsEnhanced = () => {
           <div className="flex gap-3">
             {hasEmailPermission('email_sync_contacts') && (
               <button
-                onClick={() => setShowContactSyncModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                onClick={handleSyncContacts}
+                disabled={syncingContacts || syncingCampaigns}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
               >
-                <Users size={18} />
-                Sync Contacts
+                <RefreshCw className={syncingContacts ? 'animate-spin' : ''} size={18} />
+                {syncingContacts ? 'Syncing...' : `Sync Mailchimp ${selectedConfig?.lead_type_name || ''}`}
               </button>
             )}
             {hasEmailPermission('email_sync_campaigns') && (
               <button
                 onClick={handleSyncCampaigns}
-                disabled={syncing}
+                disabled={syncingContacts || syncingCampaigns}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
               >
-                <RefreshCw className={syncing ? 'animate-spin' : ''} size={18} />
-                {syncing ? 'Syncing...' : 'Sync Campaigns'}
+                <RefreshCw className={syncingCampaigns ? 'animate-spin' : ''} size={18} />
+                {syncingCampaigns ? 'Syncing...' : 'Sync Campaigns'}
               </button>
             )}
           </div>
@@ -584,10 +675,10 @@ const EmailsEnhanced = () => {
       </div>
 
       {/* Performance Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Avg Open Rate</h3>
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Open Rate</h3>
             <TrendingUp className="text-green-600 dark:text-green-400" size={18} />
           </div>
           <p className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -596,7 +687,7 @@ const EmailsEnhanced = () => {
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Avg Click Rate</h3>
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Click Rate</h3>
             <MousePointer className="text-blue-600 dark:text-blue-400" size={18} />
           </div>
           <p className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -605,8 +696,26 @@ const EmailsEnhanced = () => {
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Unsub Rate</h3>
+            <TrendingUp className="text-red-600 dark:text-red-400" size={18} />
+          </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">
+            {(stats?.avg_unsubscribe_rate || 0).toFixed(1)}%
+          </p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Delivery Rate</h3>
+            <TrendingUp className="text-purple-600 dark:text-purple-400" size={18} />
+          </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">
+            {(stats?.avg_delivery_rate || 0).toFixed(1)}%
+          </p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Campaigns</h3>
-            <Mail className="text-purple-600 dark:text-purple-400" size={18} />
+            <Mail className="text-gray-600 dark:text-gray-400" size={18} />
           </div>
           <p className="text-3xl font-bold text-gray-900 dark:text-white">
             {campaigns.length}
@@ -1238,8 +1347,11 @@ const EmailsEnhanced = () => {
                 className="px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white text-sm"
               >
                 <option value="all">All Status</option>
-                <option value="synced">Synced</option>
-                <option value="error">Error</option>
+                <option value="subscribed">Subscribed</option>
+                <option value="unsubscribed">Unsubscribed</option>
+                <option value="cleaned">Cleaned</option>
+                <option value="pending">Pending</option>
+                <option value="transactional">Transactional</option>
               </select>
 
               {/* Export CSV Button */}
@@ -1411,8 +1523,11 @@ const EmailsEnhanced = () => {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Address</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">City</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">State</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Zip</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Lead Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Property</th>
                 <th
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                   onClick={() => handleContactSort('status')}
@@ -1420,6 +1535,28 @@ const EmailsEnhanced = () => {
                   <div className="flex items-center gap-1">
                     Status
                     {contactSortField === 'status' && (
+                      contactSortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                  onClick={() => handleContactSort('member_rating')}
+                >
+                  <div className="flex items-center gap-1">
+                    Rating
+                    {contactSortField === 'member_rating' && (
+                      contactSortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                  onClick={() => handleContactSort('timestamp_signup')}
+                >
+                  <div className="flex items-center gap-1">
+                    Signup Date
+                    {contactSortField === 'timestamp_signup' && (
                       contactSortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
                     )}
                   </div>
@@ -1441,12 +1578,12 @@ const EmailsEnhanced = () => {
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {paginatedEmailContacts.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan="13" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     {emailContacts.length === 0 ? (
                       <div className="flex flex-col items-center gap-2">
                         <Users size={48} className="text-gray-400" />
-                        <p>No synced contacts found</p>
-                        <p className="text-sm">Click "Sync Contacts" to sync your CRM contacts to Mailchimp</p>
+                        <p>No Mailchimp contacts found</p>
+                        <p className="text-sm">Click "Sync Mailchimp {selectedConfig?.lead_type_name}" to sync all contacts from your Mailchimp audience</p>
                       </div>
                     ) : (
                       <p>No contacts match your search</p>
@@ -1454,28 +1591,62 @@ const EmailsEnhanced = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedEmailContacts.map((contact) => (
-                  <tr key={contact.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="px-4 py-4">
-                      <input
-                        type="checkbox"
-                        checked={selectedContacts.includes(contact.id)}
-                        onChange={() => {
-                          if (selectedContacts.includes(contact.id)) {
-                            setSelectedContacts(selectedContacts.filter(id => id !== contact.id));
-                          } else {
-                            setSelectedContacts([...selectedContacts, contact.id]);
-                          }
-                        }}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                      />
-                    </td>
-                    <td className="px-6 py-4 text-gray-900 dark:text-white">
-                      {contact.contact_first_name} {contact.contact_last_name}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
-                      {contact.email_address || 'N/A'}
-                    </td>
+                paginatedEmailContacts.map((contact) => {
+                  // Parse merge_fields once per row for better performance
+                  let mergeFields = {};
+                  try {
+                    mergeFields = typeof contact.merge_fields === 'string'
+                      ? JSON.parse(contact.merge_fields)
+                      : (contact.merge_fields || {});
+                  } catch (e) {
+                    console.error('Error parsing merge_fields for contact', contact.id, e);
+                  }
+
+                  const firstName = mergeFields.FNAME || '';
+                  const lastName = mergeFields.LNAME || '';
+                  const fullName = `${firstName} ${lastName}`.trim() || 'N/A';
+
+                  // Handle ADDRESS - can be string or object
+                  let address = 'N/A';
+                  let city = mergeFields.CITY || 'N/A';
+                  let state = mergeFields.STATE || 'N/A';
+                  let zip = mergeFields.ZIP || 'N/A';
+
+                  if (mergeFields.ADDRESS) {
+                    if (typeof mergeFields.ADDRESS === 'object') {
+                      // ADDRESS is an object with nested properties
+                      address = mergeFields.ADDRESS.addr1 || 'N/A';
+                      if (!mergeFields.CITY && mergeFields.ADDRESS.city) city = mergeFields.ADDRESS.city;
+                      if (!mergeFields.STATE && mergeFields.ADDRESS.state) state = mergeFields.ADDRESS.state;
+                      if (!mergeFields.ZIP && mergeFields.ADDRESS.zip) zip = mergeFields.ADDRESS.zip;
+                    } else {
+                      // ADDRESS is a string
+                      address = mergeFields.ADDRESS;
+                    }
+                  }
+
+                  return (
+                    <tr key={contact.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedContacts.includes(contact.id)}
+                          onChange={() => {
+                            if (selectedContacts.includes(contact.id)) {
+                              setSelectedContacts(selectedContacts.filter(id => id !== contact.id));
+                            } else {
+                              setSelectedContacts([...selectedContacts, contact.id]);
+                            }
+                          }}
+                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-gray-900 dark:text-white">{fullName}</td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{contact.email_address || 'N/A'}</td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{address}</td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{city}</td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{state}</td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{zip}</td>
                     <td className="px-6 py-4">
                       {contact.lead_type_name && (
                         <span
@@ -1485,9 +1656,6 @@ const EmailsEnhanced = () => {
                           {contact.lead_type_name}
                         </span>
                       )}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
-                      {contact.property_address_full || 'N/A'}
                     </td>
                     <td className="px-6 py-4">
                       {contact.sync_status === 'error' ? (
@@ -1518,6 +1686,12 @@ const EmailsEnhanced = () => {
                           {contact.status || 'Unknown'}
                         </span>
                       )}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
+                      {contact.member_rating > 0 ? '⭐'.repeat(contact.member_rating) : 'No rating'}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600 dark:text-gray-400 text-sm">
+                      {contact.timestamp_signup ? new Date(contact.timestamp_signup).toLocaleDateString() : 'N/A'}
                     </td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400 text-sm">
                       {contact.last_synced_at ? new Date(contact.last_synced_at).toLocaleDateString() : 'Never'}
@@ -1576,7 +1750,8 @@ const EmailsEnhanced = () => {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -1638,17 +1813,6 @@ const EmailsEnhanced = () => {
     </div>
 
     {/* Modals - Rendered outside space-y-6 container to avoid margin issues */}
-    <ContactSyncModal
-      isOpen={showContactSyncModal}
-      onClose={() => setShowContactSyncModal(false)}
-      leadTypeId={selectedLeadType}
-      leadTypeName={selectedConfig?.lead_type_name}
-      onSyncComplete={() => {
-        // Refresh stats and contacts after sync
-        fetchStats();
-        fetchEmailContacts();
-      }}
-    />
 
     <ContactDetailsModal
       contact={selectedContact}

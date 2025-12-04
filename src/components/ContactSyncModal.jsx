@@ -13,9 +13,7 @@ import {
 import { toast } from 'sonner';
 
 const ContactSyncModal = ({ isOpen, onClose, leadTypeId, leadTypeName, onSyncComplete }) => {
-  const [contacts, setContacts] = useState([]);
-  const [syncedContacts, setSyncedContacts] = useState([]);
-  const [selectedContacts, setSelectedContacts] = useState([]);
+  const [mailchimpContacts, setMailchimpContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,38 +23,23 @@ const ContactSyncModal = ({ isOpen, onClose, leadTypeId, leadTypeName, onSyncCom
   useEffect(() => {
     if (isOpen && leadTypeId) {
       setLoading(true);
-      setContacts([]);
-      setSyncedContacts([]);
-      fetchContacts();
-      fetchSyncedContacts();
+      setMailchimpContacts([]);
+      fetchMailchimpContacts();
       fetchStats();
     }
   }, [isOpen, leadTypeId]);
 
-  const fetchContacts = async () => {
-    try {
-      // The contacts table stores lead_type as the ID number (e.g., "1", "2", "3")
-      // not the name, so we filter by the leadTypeId directly
-      const response = await axios.get(`${API_BASE_URL}/contacts`, {
-        params: { lead_type: leadTypeId.toString() }
-      });
-      setContacts(response.data.contacts || []);
-    } catch (error) {
-      console.error('Failed to fetch contacts:', error);
-      toast.error('Failed to load contacts');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchSyncedContacts = async () => {
+  const fetchMailchimpContacts = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/mailchimp/contacts`, {
         params: { lead_type_id: leadTypeId }
       });
-      setSyncedContacts(response.data.contacts || []);
+      setMailchimpContacts(response.data.contacts || []);
     } catch (error) {
-      console.error('Failed to fetch synced contacts:', error);
+      console.error('Failed to fetch Mailchimp contacts:', error);
+      toast.error('Failed to load Mailchimp contacts');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -71,43 +54,40 @@ const ContactSyncModal = ({ isOpen, onClose, leadTypeId, leadTypeName, onSyncCom
     }
   };
 
-  const handleSyncAll = async () => {
+  const handlePullFromMailchimp = async () => {
     setSyncing(true);
-    const totalContacts = contactsWithEmail.length;
-    setSyncProgress({ current: 0, total: totalContacts, message: 'Starting sync...' });
+    setSyncProgress({ current: 0, total: 100, message: 'Pulling contacts from Mailchimp...' });
 
     let progressInterval;
     try {
       // Simulate progress updates - stop at 90% to wait for server response
       progressInterval = setInterval(() => {
         setSyncProgress(prev => {
-          const maxProgress = Math.floor(prev.total * 0.9); // Stop at 90%
+          const maxProgress = 90;
           if (prev.current >= maxProgress) {
             return {
               ...prev,
               current: maxProgress,
-              message: 'Processing on server...'
+              message: 'Processing contacts...'
             };
           }
-          const increment = Math.ceil(prev.total / 30);
-          const newCurrent = Math.min(prev.current + increment, maxProgress);
           return {
             ...prev,
-            current: newCurrent,
-            message: `Syncing ${newCurrent} of ${prev.total} contacts...`
+            current: Math.min(prev.current + 5, maxProgress),
+            message: 'Pulling contacts from Mailchimp...'
           };
         });
-      }, 300);
+      }, 500);
 
       const response = await axios.post(`${API_BASE_URL}/mailchimp/contacts/sync`, {
         lead_type_id: leadTypeId
       });
 
       clearInterval(progressInterval);
-      setSyncProgress({ current: totalContacts, total: totalContacts, message: 'Sync complete!' });
+      setSyncProgress({ current: 100, total: 100, message: 'Sync complete!' });
 
       toast.success(response.data.message);
-      await fetchSyncedContacts();
+      await fetchMailchimpContacts();
       await fetchStats();
       if (onSyncComplete) onSyncComplete();
 
@@ -115,109 +95,25 @@ const ContactSyncModal = ({ isOpen, onClose, leadTypeId, leadTypeName, onSyncCom
       setTimeout(() => setSyncProgress({ current: 0, total: 0, message: '' }), 2000);
     } catch (error) {
       if (progressInterval) clearInterval(progressInterval);
-      console.error('Sync error:', error);
-      toast.error(error.response?.data?.error || 'Failed to sync contacts');
+      console.error('Pull from Mailchimp error:', error);
+      toast.error(error.response?.data?.error || 'Failed to pull contacts from Mailchimp');
       setSyncProgress({ current: 0, total: 0, message: '' });
     } finally {
       setSyncing(false);
     }
   };
 
-  const handleSyncSelected = async () => {
-    if (selectedContacts.length === 0) {
-      toast.error('Please select contacts to sync');
-      return;
-    }
-
-    setSyncing(true);
-    const totalContacts = selectedContacts.length;
-    setSyncProgress({ current: 0, total: totalContacts, message: 'Starting sync...' });
-
-    let progressInterval;
-    try {
-      // Simulate progress updates - stop at 90% to wait for server response
-      progressInterval = setInterval(() => {
-        setSyncProgress(prev => {
-          const maxProgress = Math.floor(prev.total * 0.9); // Stop at 90%
-          if (prev.current >= maxProgress) {
-            return {
-              ...prev,
-              current: maxProgress,
-              message: 'Processing on server...'
-            };
-          }
-          const increment = Math.ceil(prev.total / 20);
-          const newCurrent = Math.min(prev.current + increment, maxProgress);
-          return {
-            ...prev,
-            current: newCurrent,
-            message: `Syncing ${newCurrent} of ${prev.total} contacts...`
-          };
-        });
-      }, 200);
-
-      const response = await axios.post(`${API_BASE_URL}/mailchimp/contacts/sync`, {
-        lead_type_id: leadTypeId,
-        contact_ids: selectedContacts
-      });
-
-      clearInterval(progressInterval);
-      setSyncProgress({ current: totalContacts, total: totalContacts, message: 'Sync complete!' });
-
-      toast.success(response.data.message);
-      await fetchSyncedContacts();
-      await fetchStats();
-      setSelectedContacts([]);
-      if (onSyncComplete) onSyncComplete();
-
-      // Reset progress after a delay
-      setTimeout(() => setSyncProgress({ current: 0, total: 0, message: '' }), 2000);
-    } catch (error) {
-      if (progressInterval) clearInterval(progressInterval);
-      console.error('Sync error:', error);
-      toast.error(error.response?.data?.error || 'Failed to sync contacts');
-      setSyncProgress({ current: 0, total: 0, message: '' });
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedContacts.length === filteredContacts.length) {
-      setSelectedContacts([]);
-    } else {
-      setSelectedContacts(filteredContacts.map(c => c.id));
-    }
-  };
-
-  const toggleSelectContact = (contactId) => {
-    if (selectedContacts.includes(contactId)) {
-      setSelectedContacts(selectedContacts.filter(id => id !== contactId));
-    } else {
-      setSelectedContacts([...selectedContacts, contactId]);
-    }
-  };
-
-  const isSynced = (contactId) => {
-    return syncedContacts.some(sc => sc.contact_id === contactId && sc.sync_status === 'synced');
-  };
-
-  const getSyncStatus = (contactId) => {
-    const synced = syncedContacts.find(sc => sc.contact_id === contactId);
-    if (!synced) return null;
-    return synced.sync_status;
-  };
-
-  const filteredContacts = contacts.filter(contact => {
+  const filteredContacts = mailchimpContacts.filter(contact => {
     const searchLower = searchQuery.toLowerCase();
+    const mergeFields = contact.merge_fields ? JSON.parse(contact.merge_fields) : {};
+    const firstName = mergeFields.FNAME || '';
+    const lastName = mergeFields.LNAME || '';
     return (
-      contact.contact_first_name?.toLowerCase().includes(searchLower) ||
-      contact.contact_last_name?.toLowerCase().includes(searchLower) ||
-      contact.contact_1_email1?.toLowerCase().includes(searchLower)
+      firstName.toLowerCase().includes(searchLower) ||
+      lastName.toLowerCase().includes(searchLower) ||
+      contact.email_address?.toLowerCase().includes(searchLower)
     );
   });
-
-  const contactsWithEmail = filteredContacts.filter(c => c.contact_1_email1);
 
   if (!isOpen) return null;
 
@@ -228,10 +124,10 @@ const ContactSyncModal = ({ isOpen, onClose, leadTypeId, leadTypeName, onSyncCom
           <div>
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Users size={24} />
-              Sync Mailchimp to Contacts
+              Mailchimp Contacts
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {leadTypeName} Lead Type - Pull data from Mailchimp
+              {leadTypeName} Lead Type - View and sync contacts from Mailchimp
             </p>
           </div>
           <button
@@ -290,24 +186,14 @@ const ContactSyncModal = ({ isOpen, onClose, leadTypeId, leadTypeName, onSyncCom
               className="pl-10 pr-4 py-2 w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white text-sm"
             />
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleSyncSelected}
-              disabled={syncing || selectedContacts.length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors text-sm"
-            >
-              <RefreshCw className={syncing ? 'animate-spin' : ''} size={16} />
-              Sync Selected ({selectedContacts.length})
-            </button>
-            <button
-              onClick={handleSyncAll}
-              disabled={syncing}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition-colors text-sm"
-            >
-              <RefreshCw className={syncing ? 'animate-spin' : ''} size={16} />
-              Sync All
-            </button>
-          </div>
+          <button
+            onClick={handlePullFromMailchimp}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors text-sm whitespace-nowrap"
+          >
+            <RefreshCw className={syncing ? 'animate-spin' : ''} size={16} />
+            Sync Mailchimp {leadTypeName}
+          </button>
         </div>
 
         {/* Contacts List */}
@@ -315,65 +201,61 @@ const ContactSyncModal = ({ isOpen, onClose, leadTypeId, leadTypeName, onSyncCom
           <div className="flex items-center justify-center py-12">
             <Loader className="animate-spin text-blue-600" size={32} />
           </div>
-        ) : contactsWithEmail.length === 0 ? (
+        ) : filteredContacts.length === 0 ? (
           <div className="text-center py-12">
             <Users size={48} className="text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-600 dark:text-gray-400">No contacts with email addresses found</p>
+            <p className="text-gray-600 dark:text-gray-400">
+              {mailchimpContacts.length === 0
+                ? `No Mailchimp contacts synced yet. Click "Sync Mailchimp ${leadTypeName}" to sync.`
+                : 'No contacts match your search'}
+            </p>
           </div>
         ) : (
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden max-h-[400px] overflow-y-auto">
             <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
                   <tr>
-                    <th className="px-4 py-3 text-left">
-                      <input
-                        type="checkbox"
-                        checked={selectedContacts.length === contactsWithEmail.length && contactsWithEmail.length > 0}
-                        onChange={toggleSelectAll}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                      />
-                    </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Email</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Rating</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {contactsWithEmail.map((contact) => {
-                    const syncStatus = getSyncStatus(contact.id);
+                  {filteredContacts.map((contact) => {
+                    const mergeFields = contact.merge_fields ? JSON.parse(contact.merge_fields) : {};
+                    const firstName = mergeFields.FNAME || '';
+                    const lastName = mergeFields.LNAME || '';
+                    const fullName = `${firstName} ${lastName}`.trim() || 'N/A';
+
                     return (
                       <tr key={contact.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedContacts.includes(contact.id)}
-                            onChange={() => toggleSelectContact(contact.id)}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                          />
-                        </td>
                         <td className="px-4 py-3 text-gray-900 dark:text-white">
-                          {contact.contact_first_name} {contact.contact_last_name}
+                          {fullName}
                         </td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                          {contact.contact_1_email1}
+                          {contact.email_address}
                         </td>
                         <td className="px-4 py-3">
-                          {syncStatus === 'synced' ? (
+                          {contact.status === 'subscribed' ? (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-xs whitespace-nowrap">
                               <CheckCircle size={12} />
-                              Synced
+                              Subscribed
                             </span>
-                          ) : syncStatus === 'error' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-full text-xs whitespace-nowrap">
+                          ) : contact.status === 'unsubscribed' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-xs whitespace-nowrap">
                               <XCircle size={12} />
-                              Error
+                              Unsubscribed
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-xs whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded-full text-xs whitespace-nowrap">
                               <AlertCircle size={12} />
-                              Not Synced
+                              {contact.status}
                             </span>
                           )}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                          {'⭐'.repeat(contact.member_rating || 0) || 'N/A'}
                         </td>
                       </tr>
                     );

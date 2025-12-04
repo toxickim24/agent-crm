@@ -909,7 +909,7 @@ const AdminDashboard = () => {
               <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Email Permissions (Mailchimp)</h4>
               <div className="grid grid-cols-4 gap-2">
                 {[
-                  { key: 'email_sync_contacts', label: 'Sync Contacts' },
+                  { key: 'email_sync_contacts', label: 'Sync Mailchimp Contacts' },
                   { key: 'email_sync_campaigns', label: 'Sync Campaigns' },
                   { key: 'email_view_campaign', label: 'View Campaign Details' },
                   { key: 'email_export_csv', label: 'Export to CSV' },

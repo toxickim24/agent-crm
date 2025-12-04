@@ -3,6 +3,19 @@ import { X, Mail, User, MapPin, Calendar, TrendingUp, Tag, Star, ExternalLink } 
 const ContactDetailsModal = ({ contact, isOpen, onClose }) => {
   if (!isOpen || !contact) return null;
 
+  // Extract name from merge_fields
+  let firstName = '';
+  let lastName = '';
+  try {
+    const mergeFields = contact.merge_fields ? JSON.parse(contact.merge_fields) : {};
+    firstName = mergeFields.FNAME || '';
+    lastName = mergeFields.LNAME || '';
+  } catch (e) {
+    firstName = '';
+    lastName = '';
+  }
+  const fullName = `${firstName} ${lastName}`.trim() || 'N/A';
+
   const getMemberRating = (rating) => {
     const stars = [];
     for (let i = 0; i < 5; i++) {
@@ -56,7 +69,7 @@ const ContactDetailsModal = ({ contact, isOpen, onClose }) => {
               <div>
                 <label className="text-xs text-gray-500 dark:text-gray-400">Full Name</label>
                 <p className="text-gray-900 dark:text-white font-medium">
-                  {contact.contact_first_name} {contact.contact_last_name}
+                  {fullName}
                 </p>
               </div>
               <div>
@@ -77,9 +90,9 @@ const ContactDetailsModal = ({ contact, isOpen, onClose }) => {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-500 dark:text-gray-400">Property Address</label>
-                <p className="text-gray-900 dark:text-white font-medium">
-                  {contact.property_address_full || 'N/A'}
+                <label className="text-xs text-gray-500 dark:text-gray-400">Subscriber Hash</label>
+                <p className="text-gray-900 dark:text-white font-mono text-xs">
+                  {contact.subscriber_hash || 'N/A'}
                 </p>
               </div>
             </div>

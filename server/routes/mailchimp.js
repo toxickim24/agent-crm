@@ -421,11 +421,13 @@ router.get('/stats', getUserPermissions, async (req, res) => {
         SUM(emails_sent) as total_sent,
         SUM(CASE WHEN DATE(send_time) = CURDATE() THEN emails_sent ELSE 0 END) as sent_today,
         SUM(opens_total) as total_opens,
+        SUM(unique_opens) as total_unique_opens,
         SUM(CASE WHEN DATE(send_time) = CURDATE() THEN opens_total ELSE 0 END) as opens_today,
         SUM(clicks_total) as total_clicks,
+        SUM(unique_subscriber_clicks) as total_unique_subscriber_clicks,
         SUM(CASE WHEN DATE(send_time) = CURDATE() THEN clicks_total ELSE 0 END) as clicks_today,
-        AVG(open_rate) as avg_open_rate,
-        AVG(click_rate) as avg_click_rate
+        SUM(unsubscribed) as total_unsubscribed,
+        SUM(hard_bounces + soft_bounces) as total_bounces
       FROM mailchimp_campaigns
       WHERE user_id = ? AND deleted_at IS NULL`;
 
@@ -441,15 +443,29 @@ router.get('/stats', getUserPermissions, async (req, res) => {
 
     const [stats] = await pool.query(campaignQuery, params);
 
+    // Calculate rates from totals (like Mailchimp does)
+    const totalSent = stats[0].total_sent || 0;
+    const totalUniqueOpens = stats[0].total_unique_opens || 0;
+    const totalUniqueSubscriberClicks = stats[0].total_unique_subscriber_clicks || 0;
+    const totalUnsubscribed = stats[0].total_unsubscribed || 0;
+    const totalBounces = stats[0].total_bounces || 0;
+
+    const avgOpenRate = totalSent > 0 ? (totalUniqueOpens / totalSent) * 100 : 0;
+    const avgClickRate = totalSent > 0 ? (totalUniqueSubscriberClicks / totalSent) * 100 : 0;
+    const avgUnsubscribeRate = totalSent > 0 ? (totalUnsubscribed / totalSent) * 100 : 0;
+    const avgDeliveryRate = totalSent > 0 ? ((totalSent - totalBounces) / totalSent) * 100 : 0;
+
     res.json({
-      total_sent: stats[0].total_sent || 0,
+      total_sent: totalSent,
       sent_today: stats[0].sent_today || 0,
       total_opens: stats[0].total_opens || 0,
       opens_today: stats[0].opens_today || 0,
       total_clicks: stats[0].total_clicks || 0,
       clicks_today: stats[0].clicks_today || 0,
-      avg_open_rate: parseFloat(stats[0].avg_open_rate) || 0,
-      avg_click_rate: parseFloat(stats[0].avg_click_rate) || 0
+      avg_open_rate: avgOpenRate,
+      avg_click_rate: avgClickRate,
+      avg_unsubscribe_rate: avgUnsubscribeRate,
+      avg_delivery_rate: avgDeliveryRate
     });
   } catch (error) {
     console.error('Get Mailchimp stats error:', error);
@@ -633,6 +649,71 @@ router.post('/campaigns/sync', getUserPermissions, async (req, res) => {
         [campaign.id, userId]
       );
 
+      const emailsSent = campaign.emails_sent || 0;
+
+      // For campaigns with sends, fetch detailed report for accurate data
+      let detailedReport = null;
+      if (emailsSent > 0) {
+        try {
+          const reportResponse = await axios.get(
+            `https://${config.server_prefix}.api.mailchimp.com/3.0/reports/${campaign.id}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${config.api_key}`
+              },
+              timeout: 30000
+            }
+          );
+          detailedReport = reportResponse.data;
+        } catch (error) {
+          console.warn(`⚠️  Could not fetch detailed report for campaign ${campaign.id}, using summary data`);
+        }
+      }
+
+      // Use detailed report if available, otherwise fall back to summary
+      let unsubscribed, hardBounces, softBounces, opensTotal, uniqueOpens, openRate;
+      let clicksTotal, uniqueClicks, uniqueSubscriberClicks, clickRate, abuseReports;
+
+      if (detailedReport) {
+        // Use detailed report data (more accurate)
+        uniqueOpens = detailedReport.opens?.unique_opens || 0;
+        opensTotal = detailedReport.opens?.opens_total || 0;
+        openRate = detailedReport.opens?.open_rate ? detailedReport.opens.open_rate * 100 : 0;
+
+        uniqueClicks = detailedReport.clicks?.unique_clicks || 0;
+        uniqueSubscriberClicks = detailedReport.clicks?.unique_subscriber_clicks || 0;
+        clicksTotal = detailedReport.clicks?.clicks_total || 0;
+        clickRate = detailedReport.clicks?.click_rate ? detailedReport.clicks.click_rate * 100 : 0;
+
+        hardBounces = detailedReport.bounces?.hard_bounces || 0;
+        softBounces = detailedReport.bounces?.soft_bounces || 0;
+
+        unsubscribed = detailedReport.unsubscribed || 0;
+        abuseReports = detailedReport.abuse_reports || 0;
+      } else {
+        // Fall back to summary data
+        uniqueOpens = campaign.report_summary?.unique_opens || 0;
+        opensTotal = campaign.report_summary?.opens || 0;
+        openRate = campaign.report_summary?.open_rate ? campaign.report_summary.open_rate * 100 : 0;
+
+        uniqueClicks = campaign.report_summary?.unique_clicks || 0;
+        uniqueSubscriberClicks = campaign.report_summary?.subscriber_clicks || 0;
+        clicksTotal = campaign.report_summary?.clicks || 0;
+        clickRate = campaign.report_summary?.click_rate ? campaign.report_summary.click_rate * 100 : 0;
+
+        hardBounces = campaign.report_summary?.hard_bounces || 0;
+        softBounces = campaign.report_summary?.soft_bounces || 0;
+
+        unsubscribed = campaign.report_summary?.unsubscribed || 0;
+        abuseReports = campaign.report_summary?.abuse_reports || 0;
+      }
+
+      const totalBounces = hardBounces + softBounces;
+
+      // Calculate rates
+      const unsubscribeRate = emailsSent > 0 ? (unsubscribed / emailsSent) * 100 : 0;
+      const deliveryRate = emailsSent > 0 ? ((emailsSent - totalBounces) / emailsSent) * 100 : 0;
+
       const campaignData = {
         user_id: userId,
         lead_type_id: leadTypeId,
@@ -647,18 +728,20 @@ router.post('/campaigns/sync', getUserPermissions, async (req, res) => {
         from_name: campaign.settings?.from_name,
         reply_to: campaign.settings?.reply_to,
         list_id: campaign.recipients?.list_id,
-        emails_sent: campaign.emails_sent || 0,
-        abuse_reports: campaign.report_summary?.abuse_reports || 0,
-        unsubscribed: campaign.report_summary?.unsubscribed || 0,
-        hard_bounces: campaign.report_summary?.hard_bounces || 0,
-        soft_bounces: campaign.report_summary?.soft_bounces || 0,
-        opens_total: campaign.report_summary?.opens || 0,
-        unique_opens: campaign.report_summary?.unique_opens || 0,
-        open_rate: campaign.report_summary?.open_rate ? campaign.report_summary.open_rate * 100 : 0,
-        clicks_total: campaign.report_summary?.clicks || 0,
-        unique_clicks: campaign.report_summary?.unique_clicks || 0,
-        unique_subscriber_clicks: campaign.report_summary?.subscriber_clicks || 0,
-        click_rate: campaign.report_summary?.click_rate ? campaign.report_summary.click_rate * 100 : 0,
+        emails_sent: emailsSent,
+        abuse_reports: abuseReports,
+        unsubscribed: unsubscribed,
+        hard_bounces: hardBounces,
+        soft_bounces: softBounces,
+        opens_total: opensTotal,
+        unique_opens: uniqueOpens,
+        open_rate: openRate,
+        clicks_total: clicksTotal,
+        unique_clicks: uniqueClicks,
+        unique_subscriber_clicks: uniqueSubscriberClicks,
+        click_rate: clickRate,
+        unsubscribe_rate: unsubscribeRate,
+        delivery_rate: deliveryRate,
         send_time: campaign.send_time || null,
         last_synced_at: new Date()
       };
@@ -672,6 +755,7 @@ router.post('/campaigns/sync', getUserPermissions, async (req, res) => {
                hard_bounces = ?, soft_bounces = ?,
                opens_total = ?, unique_opens = ?, open_rate = ?,
                clicks_total = ?, unique_clicks = ?, unique_subscriber_clicks = ?, click_rate = ?,
+               unsubscribe_rate = ?, delivery_rate = ?,
                last_synced_at = NOW()
            WHERE campaign_id = ? AND user_id = ?`,
           [
@@ -680,6 +764,7 @@ router.post('/campaigns/sync', getUserPermissions, async (req, res) => {
             campaignData.hard_bounces, campaignData.soft_bounces,
             campaignData.opens_total, campaignData.unique_opens, campaignData.open_rate,
             campaignData.clicks_total, campaignData.unique_clicks, campaignData.unique_subscriber_clicks, campaignData.click_rate,
+            campaignData.unsubscribe_rate, campaignData.delivery_rate,
             campaign.id, userId
           ]
         );
@@ -692,8 +777,9 @@ router.post('/campaigns/sync', getUserPermissions, async (req, res) => {
             emails_sent, abuse_reports, unsubscribed, hard_bounces, soft_bounces,
             opens_total, unique_opens, open_rate,
             clicks_total, unique_clicks, unique_subscriber_clicks, click_rate,
+            unsubscribe_rate, delivery_rate,
             send_time, last_synced_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             campaignData.user_id, campaignData.lead_type_id, campaignData.mailchimp_config_id,
             campaignData.campaign_id, campaignData.web_id, campaignData.type, campaignData.status,
@@ -703,6 +789,7 @@ router.post('/campaigns/sync', getUserPermissions, async (req, res) => {
             campaignData.hard_bounces, campaignData.soft_bounces,
             campaignData.opens_total, campaignData.unique_opens, campaignData.open_rate,
             campaignData.clicks_total, campaignData.unique_clicks, campaignData.unique_subscriber_clicks, campaignData.click_rate,
+            campaignData.unsubscribe_rate, campaignData.delivery_rate,
             campaignData.send_time, campaignData.last_synced_at
           ]
         );
@@ -739,17 +826,16 @@ router.post('/campaigns/sync', getUserPermissions, async (req, res) => {
 
 // ==================== CONTACT SYNC ENDPOINTS ====================
 
-// Get synced contacts
+// Get synced contacts from Mailchimp
 router.get('/contacts', getUserPermissions, async (req, res) => {
   try {
     const userId = req.user.id;
     const leadTypeId = req.query.lead_type_id;
 
     let query = `
-      SELECT mc.*, c.contact_first_name, c.contact_last_name, c.property_address_full,
+      SELECT mc.*,
              lt.name as lead_type_name, lt.color as lead_type_color
       FROM mailchimp_contacts mc
-      JOIN contacts c ON mc.contact_id = c.id
       LEFT JOIN lead_types lt ON mc.lead_type_id = lt.id
       WHERE mc.user_id = ? AND mc.deleted_at IS NULL`;
 
@@ -774,11 +860,12 @@ router.get('/contacts', getUserPermissions, async (req, res) => {
   }
 });
 
-// Sync contacts to Mailchimp
+// Pull ALL contacts from Mailchimp audience
 router.post('/contacts/sync', getUserPermissions, async (req, res) => {
   try {
+    console.log('📥 Pull contacts from Mailchimp requested');
     const userId = req.user.id;
-    const { lead_type_id, contact_ids } = req.body;
+    const { lead_type_id } = req.body;
 
     if (!lead_type_id) {
       return res.status(400).json({ error: 'Lead type ID is required' });
@@ -807,68 +894,75 @@ router.post('/contacts/sync', getUserPermissions, async (req, res) => {
       return res.status(400).json({ error: 'Mailchimp configuration incomplete' });
     }
 
-    // Get contacts to sync
-    let contactQuery = `
-      SELECT c.id, c.contact_first_name, c.contact_last_name, c.contact_1_email1, c.property_address_full
-      FROM contacts c
-      WHERE c.user_id = ? AND c.lead_type = ? AND c.deleted_at IS NULL`;
+    console.log(`🔄 Pulling contacts from Mailchimp list: ${config.default_audience_id}`);
 
-    const queryParams = [userId, lead_type_id];
+    let allMembers = [];
+    let offset = 0;
+    const count = 1000; // Mailchimp max per request
+    let hasMore = true;
 
-    if (contact_ids && contact_ids.length > 0) {
-      contactQuery += ` AND c.id IN (${contact_ids.map(() => '?').join(',')})`;
-      queryParams.push(...contact_ids);
-    }
-
-    const [contacts] = await pool.query(contactQuery, queryParams);
-
-    if (contacts.length === 0) {
-      return res.json({ message: 'No contacts to sync', count: 0 });
-    }
-
-    let syncedCount = 0;
-    let errorCount = 0;
-
-    // Sync each contact to Mailchimp
-    for (const contact of contacts) {
-      if (!contact.contact_1_email1) {
-        errorCount++;
-        continue;
-      }
-
+    // Fetch all members with pagination
+    while (hasMore) {
       try {
-        // Create MD5 hash of email (Mailchimp subscriber hash)
-        const crypto = await import('crypto');
-        const subscriberHash = crypto.createHash('md5').update(contact.contact_1_email1.toLowerCase()).digest('hex');
-
-        // Fetch subscriber data from Mailchimp (READ-ONLY - does not create)
         const response = await axios.get(
-          `https://${config.server_prefix}.api.mailchimp.com/3.0/lists/${config.default_audience_id}/members/${subscriberHash}`,
+          `https://${config.server_prefix}.api.mailchimp.com/3.0/lists/${config.default_audience_id}/members`,
           {
             headers: {
-              'Authorization': `Bearer ${config.api_key}`,
-              'Content-Type': 'application/json'
+              'Authorization': `Bearer ${config.api_key}`
             },
-            timeout: 10000
+            params: {
+              count: count,
+              offset: offset
+              // Removed status filter to get ALL contacts (subscribed, unsubscribed, cleaned, etc.)
+            },
+            timeout: 30000
           }
         );
 
-        // Extract all important fields from Mailchimp response
-        const mergeFields = response.data.merge_fields || {};
-        const memberRating = response.data.member_rating || 0;
-        const lastChanged = response.data.last_changed ? new Date(response.data.last_changed) : null;
-        const timestampSignup = response.data.timestamp_signup ? new Date(response.data.timestamp_signup) : null;
-        const timestampOpt = response.data.timestamp_opt ? new Date(response.data.timestamp_opt) : null;
-        const uniqueEmailId = response.data.unique_email_id || null;
-        const webId = response.data.web_id || null;
-        const emailType = response.data.email_type || 'html';
-        const ipSignup = response.data.ip_signup || null;
-        const ipOpt = response.data.ip_opt || null;
+        const members = response.data.members || [];
+        allMembers = allMembers.concat(members);
 
-        // Store in mailchimp_contacts table
+        console.log(`📊 Fetched ${members.length} members (offset: ${offset})`);
+
+        if (members.length < count) {
+          hasMore = false;
+        } else {
+          offset += count;
+        }
+      } catch (error) {
+        console.error('Error fetching members from Mailchimp:', error.response?.data || error.message);
+        return res.status(500).json({
+          error: 'Failed to fetch contacts from Mailchimp',
+          details: error.response?.data?.detail || error.message
+        });
+      }
+    }
+
+    console.log(`✅ Total members fetched: ${allMembers.length}`);
+
+    let syncedCount = 0;
+    let updatedCount = 0;
+    let errorCount = 0;
+
+    // Store each member in mailchimp_contacts
+    for (const member of allMembers) {
+      try {
+        const subscriberHash = member.id; // Mailchimp already provides the hash
+        const mergeFields = member.merge_fields || {};
+        const memberRating = member.member_rating || 0;
+        const lastChanged = member.last_changed ? new Date(member.last_changed) : null;
+        const timestampSignup = member.timestamp_signup ? new Date(member.timestamp_signup) : null;
+        const timestampOpt = member.timestamp_opt ? new Date(member.timestamp_opt) : null;
+        const uniqueEmailId = member.unique_email_id || null;
+        const webId = member.web_id || null;
+        const emailType = member.email_type || 'html';
+        const ipSignup = member.ip_signup || null;
+        const ipOpt = member.ip_opt || null;
+
+        // Check if contact already exists
         const [existing] = await pool.query(
-          'SELECT id FROM mailchimp_contacts WHERE contact_id = ? AND list_id = ?',
-          [contact.id, config.default_audience_id]
+          'SELECT id FROM mailchimp_contacts WHERE subscriber_hash = ? AND list_id = ?',
+          [subscriberHash, config.default_audience_id]
         );
 
         if (existing.length > 0) {
@@ -877,7 +971,6 @@ router.post('/contacts/sync', getUserPermissions, async (req, res) => {
             `UPDATE mailchimp_contacts
              SET email_address = ?,
                  status = ?,
-                 subscriber_hash = ?,
                  unique_email_id = ?,
                  web_id = ?,
                  email_type = ?,
@@ -891,11 +984,10 @@ router.post('/contacts/sync', getUserPermissions, async (req, res) => {
                  sync_status = 'synced',
                  sync_error = NULL,
                  last_synced_at = NOW()
-             WHERE contact_id = ? AND list_id = ?`,
+             WHERE subscriber_hash = ? AND list_id = ?`,
             [
-              contact.contact_1_email1,
-              response.data.status,
-              subscriberHash,
+              member.email_address,
+              member.status,
               uniqueEmailId,
               webId,
               emailType,
@@ -906,32 +998,32 @@ router.post('/contacts/sync', getUserPermissions, async (req, res) => {
               ipSignup,
               timestampOpt,
               ipOpt,
-              contact.id,
+              subscriberHash,
               config.default_audience_id
             ]
           );
+          updatedCount++;
         } else {
           // Insert new
           await pool.query(
             `INSERT INTO mailchimp_contacts (
-              user_id, contact_id, lead_type_id, mailchimp_config_id,
+              user_id, lead_type_id, mailchimp_config_id,
               subscriber_hash, list_id, unique_email_id, web_id,
               email_address, status, email_type,
               merge_fields, member_rating, last_changed,
               timestamp_signup, ip_signup, timestamp_opt, ip_opt,
               sync_status, last_synced_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', NOW())`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', NOW())`,
             [
               userId,
-              contact.id,
               lead_type_id,
               config.id,
               subscriberHash,
               config.default_audience_id,
               uniqueEmailId,
               webId,
-              contact.contact_1_email1,
-              response.data.status,
+              member.email_address,
+              member.status,
               emailType,
               JSON.stringify(mergeFields),
               memberRating,
@@ -942,70 +1034,27 @@ router.post('/contacts/sync', getUserPermissions, async (req, res) => {
               ipOpt
             ]
           );
+          syncedCount++;
         }
-
-        syncedCount++;
       } catch (error) {
-        // If contact doesn't exist in Mailchimp (404), skip it - don't create or log error
-        if (error.response?.status === 404) {
-          console.log(`Contact ${contact.id} (${contact.contact_1_email1}) not found in Mailchimp - skipping (no insert)`);
-          errorCount++;
-          continue;
-        }
-
-        // For other errors (authentication, rate limit, etc.), log the error
-        console.error(`Failed to sync contact ${contact.id}:`, error.response?.data || error.message);
-
-        // Record sync error - insert or update
-        const [existingError] = await pool.query(
-          'SELECT id FROM mailchimp_contacts WHERE contact_id = ? AND list_id = ?',
-          [contact.id, config.default_audience_id]
-        );
-
-        if (existingError.length > 0) {
-          // Update existing record with error
-          await pool.query(
-            `UPDATE mailchimp_contacts
-             SET sync_status = 'error',
-                 sync_error = ?,
-                 last_synced_at = NOW()
-             WHERE contact_id = ? AND list_id = ?`,
-            [error.response?.data?.detail || error.message, contact.id, config.default_audience_id]
-          );
-        } else {
-          // Insert new record with error status (for actual errors, not 404s)
-          await pool.query(
-            `INSERT INTO mailchimp_contacts (
-              user_id, contact_id, lead_type_id, mailchimp_config_id,
-              list_id, email_address, sync_status, sync_error, last_synced_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 'error', ?, NOW())`,
-            [
-              userId,
-              contact.id,
-              lead_type_id,
-              config.id,
-              config.default_audience_id,
-              contact.contact_1_email1,
-              error.response?.data?.detail || error.message
-            ]
-          );
-        }
-
+        console.error(`Failed to store contact ${member.email_address}:`, error.message);
         errorCount++;
       }
-
-      // Rate limiting - wait 100ms between requests
-      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
+    const message = `Synced ${allMembers.length} contacts from Mailchimp: ${syncedCount} new, ${updatedCount} updated${errorCount > 0 ? `, ${errorCount} failed` : ''}`;
+    console.log(`✅ ${message}`);
+
     res.json({
-      message: `Synced ${syncedCount} contacts successfully${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+      message,
+      total: allMembers.length,
       synced: syncedCount,
+      updated: updatedCount,
       failed: errorCount
     });
   } catch (error) {
-    console.error('Sync contacts error:', error);
-    res.status(500).json({ error: error.response?.data?.detail || 'Failed to sync contacts' });
+    console.error('Pull contacts error:', error);
+    res.status(500).json({ error: error.response?.data?.detail || 'Failed to pull contacts from Mailchimp' });
   }
 });
 
