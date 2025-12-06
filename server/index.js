@@ -29,7 +29,20 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increased limit for bulk imports
 
 // Serve static files from public directory (for uploaded logos, etc.)
-app.use(express.static(path.join(__dirname, '../public')));
+const publicPath = path.join(__dirname, '../public');
+console.log('📁 Static files directory:', publicPath);
+console.log('📁 Absolute static path:', path.resolve(publicPath));
+
+// Log static file requests
+app.use('/uploads', (req, res, next) => {
+  console.log('🖼️ Static file request:', req.url);
+  const filePath = path.join(publicPath, 'uploads', req.url);
+  console.log('📍 Looking for file at:', filePath);
+  console.log('📍 File exists:', fs.existsSync(filePath));
+  next();
+});
+
+app.use(express.static(publicPath));
 
 // Request logger
 app.use((req, res, next) => {

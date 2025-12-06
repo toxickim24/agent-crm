@@ -14,16 +14,45 @@ const router = express.Router();
 // Configure multer for logo upload
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../public/uploads/logos');
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    try {
+      const uploadDir = path.join(__dirname, '../../public/uploads/logos');
+      console.log('📂 Upload directory path:', uploadDir);
+      console.log('📂 Absolute upload path:', path.resolve(uploadDir));
+
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(uploadDir)) {
+        console.log('📁 Creating upload directory...');
+        fs.mkdirSync(uploadDir, { recursive: true });
+        console.log('✅ Upload directory created');
+      } else {
+        console.log('✅ Upload directory exists');
+      }
+
+      // Verify directory is writable
+      try {
+        fs.accessSync(uploadDir, fs.constants.W_OK);
+        console.log('✅ Upload directory is writable');
+      } catch (err) {
+        console.error('❌ Upload directory is not writable:', err);
+        return cb(new Error('Upload directory is not writable'));
+      }
+
+      cb(null, uploadDir);
+    } catch (error) {
+      console.error('❌ Error setting up upload destination:', error);
+      cb(error);
     }
-    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'logo-' + uniqueSuffix + path.extname(file.originalname));
+    try {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const filename = 'logo-' + uniqueSuffix + path.extname(file.originalname);
+      console.log('📝 Generated filename:', filename);
+      cb(null, filename);
+    } catch (error) {
+      console.error('❌ Error generating filename:', error);
+      cb(error);
+    }
   }
 });
 
@@ -31,13 +60,16 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
+    console.log('🔍 Validating file:', file.originalname, 'Type:', file.mimetype);
     const allowedTypes = /jpeg|jpg|png|gif|svg/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
 
     if (mimetype && extname) {
+      console.log('✅ File type validation passed');
       return cb(null, true);
     } else {
+      console.error('❌ File type validation failed');
       cb(new Error('Only image files are allowed (jpeg, jpg, png, gif, svg)'));
     }
   }
@@ -504,47 +536,108 @@ router.post('/apikeyslist/:userId/:keyId/restore', async (req, res) => {
 
 // Upload user logo (light or dark mode)
 router.post('/users/:id/logo', upload.single('logo'), async (req, res) => {
+  console.log('📸 Logo upload request received');
+  console.log('📋 User ID:', req.params.id);
+  console.log('📋 Mode:', req.body.mode);
+  console.log('📋 File received:', req.file ? 'Yes' : 'No');
+
   try {
     const { id } = req.params;
     const { mode } = req.body; // 'light' or 'dark'
 
     if (!req.file) {
+      console.error('❌ No file uploaded in request');
       return res.status(400).json({ error: 'No file uploaded.' });
     }
 
+    console.log('📁 File details:', {
+      filename: req.file.filename,
+      originalname: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+      path: req.file.path
+    });
+
     if (!mode || !['light', 'dark'].includes(mode)) {
+      console.error('❌ Invalid mode:', mode);
       fs.unlinkSync(req.file.path);
       return res.status(400).json({ error: 'Mode must be either "light" or "dark".' });
     }
 
+    // Verify the file exists
+    if (!fs.existsSync(req.file.path)) {
+      console.error('❌ File was not saved to disk:', req.file.path);
+      return res.status(500).json({ error: 'File upload failed - file not saved to disk.' });
+    }
+
+    console.log('✅ File saved successfully to:', req.file.path);
+
     // Create the logo URL path
     const logoUrl = `/uploads/logos/${req.file.filename}`;
+    console.log('🔗 Logo URL to be saved in DB:', logoUrl);
 
     // Update user's logo_url_light or logo_url_dark in database
     const column = mode === 'light' ? 'logo_url_light' : 'logo_url_dark';
+    console.log('💾 Updating database column:', column);
+
     const [result] = await pool.query(
       `UPDATE users SET ${column} = ? WHERE id = ? AND role = ?`,
       [logoUrl, id, 'client']
     );
 
+    console.log('📊 Database update result:', {
+      affectedRows: result.affectedRows,
+      changedRows: result.changedRows
+    });
+
     if (result.affectedRows === 0) {
+      console.error('❌ User not found or not a client. ID:', id);
       // Delete the uploaded file if user not found
       fs.unlinkSync(req.file.path);
       return res.status(404).json({ error: 'User not found.' });
     }
 
+    console.log('✅ Logo uploaded successfully!');
+    console.log('📍 Absolute file path:', path.resolve(req.file.path));
+    console.log('🌐 URL path:', logoUrl);
+
     res.json({
       message: `${mode.charAt(0).toUpperCase() + mode.slice(1)} mode logo uploaded successfully.`,
       logo_url: logoUrl,
-      mode
+      mode,
+      debug: {
+        filename: req.file.filename,
+        size: req.file.size,
+        savedPath: req.file.path,
+        absolutePath: path.resolve(req.file.path),
+        fileExists: fs.existsSync(req.file.path)
+      }
     });
   } catch (error) {
+    console.error('❌ Upload logo error:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error details:', {
+      message: error.message,
+      code: error.code,
+      errno: error.errno
+    });
+
     // Delete the uploaded file if there was an error
-    if (req.file) {
-      fs.unlinkSync(req.file.path);
+    if (req.file && req.file.path) {
+      try {
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+          console.log('🗑️ Cleaned up failed upload file');
+        }
+      } catch (cleanupError) {
+        console.error('❌ Failed to clean up file:', cleanupError);
+      }
     }
-    console.error('Upload logo error:', error);
-    res.status(500).json({ error: error.message || 'Server error.' });
+
+    res.status(500).json({
+      error: error.message || 'Server error during logo upload.',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
