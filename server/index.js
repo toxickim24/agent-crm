@@ -29,9 +29,27 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increased limit for bulk imports
 
 // Serve static files from public directory (for uploaded logos, etc.)
-const publicPath = path.join(__dirname, '../public');
+// Use process.cwd() for production reliability - ensures path is relative to project root
+const publicPath = process.env.PUBLIC_PATH || path.join(process.cwd(), 'public');
 console.log('📁 Static files directory:', publicPath);
 console.log('📁 Absolute static path:', path.resolve(publicPath));
+console.log('📁 Current working directory:', process.cwd());
+console.log('📁 __dirname:', __dirname);
+
+// Ensure public directory exists
+if (!fs.existsSync(publicPath)) {
+  console.error('❌ Public directory does not exist:', publicPath);
+  console.error('❌ Creating public directory...');
+  fs.mkdirSync(publicPath, { recursive: true });
+}
+
+// Ensure uploads directory exists
+const uploadsPath = path.join(publicPath, 'uploads', 'logos');
+if (!fs.existsSync(uploadsPath)) {
+  console.error('❌ Uploads directory does not exist:', uploadsPath);
+  console.error('❌ Creating uploads directory...');
+  fs.mkdirSync(uploadsPath, { recursive: true });
+}
 
 // Log static file requests
 app.use('/uploads', (req, res, next) => {
@@ -39,6 +57,9 @@ app.use('/uploads', (req, res, next) => {
   const filePath = path.join(publicPath, 'uploads', req.url);
   console.log('📍 Looking for file at:', filePath);
   console.log('📍 File exists:', fs.existsSync(filePath));
+  if (!fs.existsSync(filePath)) {
+    console.error('❌ File not found at:', filePath);
+  }
   next();
 });
 

@@ -15,7 +15,9 @@ const router = express.Router();
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     try {
-      const uploadDir = path.join(__dirname, '../../public/uploads/logos');
+      // Use the same logic as server/index.js for production reliability
+      const publicPath = process.env.PUBLIC_PATH || path.join(process.cwd(), 'public');
+      const uploadDir = path.join(publicPath, 'uploads', 'logos');
       console.log('📂 Upload directory path:', uploadDir);
       console.log('📂 Absolute upload path:', path.resolve(uploadDir));
 
@@ -673,9 +675,14 @@ router.delete('/users/:id/logo', async (req, res) => {
 
     // Delete the file if it exists
     if (logoUrl) {
-      const filePath = path.join(__dirname, '../../public', logoUrl);
+      const publicPath = process.env.PUBLIC_PATH || path.join(process.cwd(), 'public');
+      const filePath = path.join(publicPath, logoUrl);
+      console.log('🗑️ Attempting to delete file:', filePath);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
+        console.log('✅ File deleted successfully');
+      } else {
+        console.log('⚠️ File not found, nothing to delete');
       }
     }
 
