@@ -193,6 +193,20 @@ server {
     listen 80;
     server_name app.labelsalesagents.com;  # Replace with YOUR domain
 
+    # IMPORTANT: Serve uploaded files (logos, etc.) from public directory
+    # This MUST come before the location / block
+    location /uploads/ {
+        alias /var/www/agent-crm/public/uploads/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+
+        # Security: prevent script execution in uploads
+        location ~* \.(php|pl|cgi|py|sh|lua)$ {
+            deny all;
+        }
+    }
+
     # Frontend - serve built React app
     location / {
         root /var/www/agent-crm/dist;
@@ -401,6 +415,10 @@ exit;
 ```bash
 cd /var/www/agent-crm
 
+# IMPORTANT: Ensure uploads directory exists before deployment
+mkdir -p /var/www/agent-crm/public/uploads/logos
+chmod -R 755 /var/www/agent-crm/public
+
 # Pull latest changes
 git pull origin main
 
@@ -413,6 +431,20 @@ npm run build
 # Restart server
 pm2 restart agent-crm
 ```
+
+**Note:** The `public/uploads/` directory is in `.gitignore` so it won't be affected by `git pull`. However, if it's a fresh deployment, you need to create it manually (command above).
+
+### Verifying Logo Uploads After Update
+
+After deployment, test logo upload:
+1. Login to admin dashboard
+2. Edit a user
+3. Upload a test logo
+4. Verify the logo displays correctly
+5. Check the file was created:
+   ```bash
+   ls -la /var/www/agent-crm/public/uploads/logos/
+   ```
 
 ---
 
