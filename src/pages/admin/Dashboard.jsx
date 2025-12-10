@@ -174,6 +174,13 @@ const AdminDashboard = () => {
       email_export_csv: client.email_export_csv ?? true,
       email_archive_campaign: client.email_archive_campaign ?? true,
       email_delete_campaign: client.email_delete_campaign ?? true,
+      brevo: client.brevo ?? true,
+      brevo_view_contacts: client.brevo_view_contacts ?? true,
+      brevo_view_lists: client.brevo_view_lists ?? true,
+      brevo_view_campaigns: client.brevo_view_campaigns ?? true,
+      brevo_view_stats: client.brevo_view_stats ?? true,
+      brevo_sync_data: client.brevo_sync_data ?? true,
+      brevo_export_csv: client.brevo_export_csv ?? true,
       allowed_lead_types: parsedLeadTypes
     };
 
@@ -593,6 +600,13 @@ const AdminDashboard = () => {
               Mailchimp
             </button>
             <button
+              onClick={() => navigate('/admin/brevo-config')}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+            >
+              <Mail size={18} />
+              Brevo
+            </button>
+            <button
               onClick={toggleTheme}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
@@ -962,17 +976,24 @@ const AdminDashboard = () => {
             {/* General Permissions */}
             <div className="mb-3">
               <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">General Permissions</h4>
-              <div className="grid grid-cols-5 gap-2">
-                {['home', 'contacts', 'calls_texts', 'emails', 'mailers'].map((perm) => (
-                  <label key={perm} className="flex items-center gap-2 cursor-pointer">
+              <div className="grid grid-cols-6 gap-2">
+                {[
+                  { key: 'home', label: 'Home' },
+                  { key: 'contacts', label: 'Contacts' },
+                  { key: 'calls_texts', label: 'Calls & Texts' },
+                  { key: 'emails', label: 'Emails (Mailchimp)' },
+                  { key: 'brevo', label: 'Emails (Brevo)' },
+                  { key: 'mailers', label: 'Mailers' }
+                ].map((perm) => (
+                  <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={permissions[perm]}
-                      onChange={(e) => setPermissions({ ...permissions, [perm]: e.target.checked })}
+                      checked={permissions[perm.key]}
+                      onChange={(e) => setPermissions({ ...permissions, [perm.key]: e.target.checked })}
                       className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                     />
-                    <span className="text-gray-900 dark:text-white capitalize text-sm">
-                      {perm.replace('_', ' & ')}
+                    <span className="text-gray-900 dark:text-white text-sm">
+                      {perm.label}
                     </span>
                   </label>
                 ))}
@@ -1061,6 +1082,36 @@ const AdminDashboard = () => {
                   </label>
                 ))}
               </div>
+            </div>
+
+            {/* Brevo Granular Permissions */}
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Brevo Permissions (Sendinblue)</h4>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { key: 'brevo_view_contacts', label: 'View Contacts' },
+                  { key: 'brevo_view_lists', label: 'View Lists' },
+                  { key: 'brevo_view_campaigns', label: 'View Campaigns' },
+                  { key: 'brevo_view_stats', label: 'View Statistics' },
+                  { key: 'brevo_sync_data', label: 'Sync/Refresh Data' },
+                  { key: 'brevo_export_csv', label: 'Export to CSV' }
+                ].map((perm) => (
+                  <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permissions[perm.key] ?? true}
+                      onChange={(e) => setPermissions({ ...permissions, [perm.key]: e.target.checked })}
+                      className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-gray-900 dark:text-white text-sm">
+                      {perm.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Note: Editing Brevo API settings is only available to admin users.
+              </p>
             </div>
 
             {/* Lead Type Filter Permissions */}
@@ -1184,6 +1235,24 @@ const AdminDashboard = () => {
                   placeholder="End Mail URL"
                   value={apiConfig.dealmachine_end_mail || ''}
                   onChange={(e) => setApiConfig({ ...apiConfig, dealmachine_end_mail: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Brevo (Sendinblue)</h4>
+                <input
+                  type="text"
+                  placeholder="Brevo API Key"
+                  value={apiConfig.brevo_api_key || ''}
+                  onChange={(e) => setApiConfig({ ...apiConfig, brevo_api_key: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-2"
+                />
+                <input
+                  type="text"
+                  placeholder="Brevo Account Email (optional)"
+                  value={apiConfig.brevo_account_email || ''}
+                  onChange={(e) => setApiConfig({ ...apiConfig, brevo_account_email: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>

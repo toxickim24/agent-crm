@@ -5,6 +5,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,6 +99,8 @@ router.get('/users', async (req, res) => {
              p.mailer_sync, p.mailer_start, p.mailer_pause, p.mailer_end, p.mailer_delete,
              p.email_sync_contacts, p.email_sync_campaigns, p.email_view_campaign,
              p.email_export_csv, p.email_archive_campaign, p.email_delete_campaign,
+             p.brevo, p.brevo_view_contacts, p.brevo_view_lists, p.brevo_view_campaigns,
+             p.brevo_view_stats, p.brevo_sync_data, p.brevo_export_csv,
              p.allowed_lead_types
       FROM users u
       LEFT JOIN permissions p ON u.id = p.user_id
@@ -747,6 +750,8 @@ router.put('/users/:id/permissions', async (req, res) => {
       mailer_sync, mailer_start, mailer_pause, mailer_end, mailer_delete,
       email_sync_contacts, email_sync_campaigns, email_view_campaign,
       email_export_csv, email_archive_campaign, email_delete_campaign,
+      brevo, brevo_view_contacts, brevo_view_lists, brevo_view_campaigns,
+      brevo_view_stats, brevo_sync_data, brevo_export_csv,
       allowed_lead_types
     } = req.body;
 
@@ -773,6 +778,8 @@ router.put('/users/:id/permissions', async (req, res) => {
            mailer_sync = ?, mailer_start = ?, mailer_pause = ?, mailer_end = ?, mailer_delete = ?,
            email_sync_contacts = ?, email_sync_campaigns = ?, email_view_campaign = ?,
            email_export_csv = ?, email_archive_campaign = ?, email_delete_campaign = ?,
+           brevo = ?, brevo_view_contacts = ?, brevo_view_lists = ?, brevo_view_campaigns = ?,
+           brevo_view_stats = ?, brevo_sync_data = ?, brevo_export_csv = ?,
            allowed_lead_types = ?
        WHERE user_id = ?`,
       [
@@ -802,6 +809,13 @@ router.put('/users/:id/permissions', async (req, res) => {
         email_export_csv ? 1 : 0,
         email_archive_campaign ? 1 : 0,
         email_delete_campaign ? 1 : 0,
+        brevo ? 1 : 0,
+        brevo_view_contacts ? 1 : 0,
+        brevo_view_lists ? 1 : 0,
+        brevo_view_campaigns ? 1 : 0,
+        brevo_view_stats ? 1 : 0,
+        brevo_sync_data ? 1 : 0,
+        brevo_export_csv ? 1 : 0,
         allowedLeadTypesJson,
         id
       ]
@@ -847,20 +861,23 @@ router.get('/users/:id/api-config', async (req, res) => {
 
 // Update user API configuration
 router.put('/users/:id/api-config', async (req, res) => {
+  console.log('🔵 API Config PUT request received');
+  console.log('🔵 User ID:', req.params.id);
+  console.log('🔵 Request body:', req.body);
   try {
     const { id } = req.params;
     const {
       aloware_api_key,
       aloware_account_id,
-      mailchimp_api_key,
-      mailchimp_server_prefix,
       dealmachine_bearer_token,
       dealmachine_get_lead,
       mailer_campaign_id,
       dealmachine_start_mail,
       dealmachine_pause_mail,
       dealmachine_end_mail,
-      landing_page_url
+      landing_page_url,
+      brevo_api_key,
+      brevo_account_email
     } = req.body;
 
     // Check if config exists
@@ -871,20 +888,18 @@ router.put('/users/:id/api-config', async (req, res) => {
       await pool.query(
         `INSERT INTO api_configs (
           user_id, aloware_api_key, aloware_account_id,
-          mailchimp_api_key, mailchimp_server_prefix,
           dealmachine_bearer_token, dealmachine_get_lead,
           mailer_campaign_id, dealmachine_start_mail,
           dealmachine_pause_mail, dealmachine_end_mail,
-          landing_page_url
+          landing_page_url, brevo_api_key, brevo_account_email
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id, aloware_api_key, aloware_account_id,
-          mailchimp_api_key, mailchimp_server_prefix,
           dealmachine_bearer_token, dealmachine_get_lead,
           mailer_campaign_id, dealmachine_start_mail,
           dealmachine_pause_mail, dealmachine_end_mail,
-          landing_page_url
+          landing_page_url, brevo_api_key, brevo_account_email
         ]
       );
     } else {
@@ -893,31 +908,36 @@ router.put('/users/:id/api-config', async (req, res) => {
         `UPDATE api_configs
          SET aloware_api_key = ?,
              aloware_account_id = ?,
-             mailchimp_api_key = ?,
-             mailchimp_server_prefix = ?,
              dealmachine_bearer_token = ?,
              dealmachine_get_lead = ?,
              mailer_campaign_id = ?,
              dealmachine_start_mail = ?,
              dealmachine_pause_mail = ?,
              dealmachine_end_mail = ?,
-             landing_page_url = ?
+             landing_page_url = ?,
+             brevo_api_key = ?,
+             brevo_account_email = ?
          WHERE user_id = ?`,
         [
           aloware_api_key, aloware_account_id,
-          mailchimp_api_key, mailchimp_server_prefix,
           dealmachine_bearer_token, dealmachine_get_lead,
           mailer_campaign_id, dealmachine_start_mail,
           dealmachine_pause_mail, dealmachine_end_mail,
-          landing_page_url, id
+          landing_page_url, brevo_api_key, brevo_account_email, id
         ]
       );
     }
 
     res.json({ message: 'API configuration updated successfully.' });
   } catch (error) {
-    console.error('Update API config error:', error);
-    res.status(500).json({ error: 'Server error.' });
+    console.error('❌ Update API config error:', error);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    if (error.sql) {
+      console.error('❌ SQL Query:', error.sql);
+      console.error('❌ SQL Error:', error.sqlMessage);
+    }
+    res.status(500).json({ error: error.message || 'Server error.' });
   }
 });
 
@@ -1141,4 +1161,198 @@ router.put('/campaigns/:id/restore', async (req, res) => {
   }
 });
 
+// ============================================
+// BREVO WEBHOOK CONFIGURATION ROUTES
+// ============================================
+
+/**
+ * GET /api/admin/brevo-webhooks
+ * Get all user Brevo webhook configurations and users without webhooks
+ */
+router.get('/brevo-webhooks', async (req, res) => {
+  try {
+    console.log('📨 Admin route request: GET /brevo-webhooks');
+
+    const [webhooks] = await pool.query(`
+      SELECT
+        bw.id,
+        bw.user_id,
+        bw.webhook_token,
+        bw.webhook_url,
+        bw.is_active,
+        bw.events_received,
+        bw.last_event_at,
+        bw.created_at,
+        bw.updated_at,
+        u.name as user_name,
+        u.email as user_email,
+        ac.brevo_api_key,
+        ac.brevo_account_email
+      FROM brevo_webhooks bw
+      INNER JOIN users u ON bw.user_id = u.id
+      LEFT JOIN api_configs ac ON bw.user_id = ac.user_id
+      WHERE u.deleted_at IS NULL
+      ORDER BY u.email ASC
+    `);
+
+    // Get users with Brevo API keys but no webhooks
+    const [usersWithoutWebhooks] = await pool.query(`
+      SELECT
+        u.id as user_id,
+        u.name as user_name,
+        u.email as user_email,
+        ac.brevo_api_key,
+        ac.brevo_account_email
+      FROM users u
+      INNER JOIN api_configs ac ON u.id = ac.user_id
+      WHERE ac.brevo_api_key IS NOT NULL
+      AND ac.brevo_api_key != ''
+      AND u.deleted_at IS NULL
+      AND u.id NOT IN (SELECT user_id FROM brevo_webhooks)
+      ORDER BY u.email ASC
+    `);
+
+    res.json({ webhooks, usersWithoutWebhooks });
+  } catch (error) {
+    console.error('Get brevo webhooks error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * GET /api/admin/brevo-webhooks/:userId
+ * Get Brevo webhook configuration for specific user
+ */
+router.get('/brevo-webhooks/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(`📨 Admin route request: GET /brevo-webhooks/${userId}`);
+
+    const [webhooks] = await pool.query(`
+      SELECT
+        bw.*,
+        u.name as user_name,
+        u.email as user_email,
+        ac.brevo_api_key,
+        ac.brevo_account_email
+      FROM brevo_webhooks bw
+      INNER JOIN users u ON bw.user_id = u.id
+      LEFT JOIN api_configs ac ON bw.user_id = ac.user_id
+      WHERE bw.user_id = ? AND u.deleted_at IS NULL
+    `, [userId]);
+
+    if (webhooks.length === 0) {
+      return res.status(404).json({ error: 'Webhook configuration not found' });
+    }
+
+    res.json({ webhook: webhooks[0] });
+  } catch (error) {
+    console.error('Get user brevo webhook error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * POST /api/admin/brevo-webhooks/:userId/generate
+ * Generate or regenerate webhook token for user
+ */
+router.post('/brevo-webhooks/:userId/generate', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(`📨 Admin route request: POST /brevo-webhooks/${userId}/generate`);
+
+    // Check if user exists and has Brevo API key
+    const [users] = await pool.query(`
+      SELECT u.id, u.email, ac.brevo_api_key
+      FROM users u
+      LEFT JOIN api_configs ac ON u.id = ac.user_id
+      WHERE u.id = ? AND u.deleted_at IS NULL
+    `, [userId]);
+
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Generate new webhook token
+    const token = crypto.randomBytes(32).toString('hex');
+    const webhookUrl = `${req.protocol}://${req.get('host')}/api/webhooks/brevo/${token}`;
+
+    // Insert or update webhook configuration
+    await pool.query(`
+      INSERT INTO brevo_webhooks (user_id, webhook_token, webhook_url)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        webhook_token = VALUES(webhook_token),
+        webhook_url = VALUES(webhook_url),
+        updated_at = CURRENT_TIMESTAMP
+    `, [userId, token, webhookUrl]);
+
+    // Fetch the updated webhook configuration
+    const [webhooks] = await pool.query(`
+      SELECT * FROM brevo_webhooks WHERE user_id = ?
+    `, [userId]);
+
+    res.json({
+      message: 'Webhook generated successfully',
+      webhook: webhooks[0]
+    });
+  } catch (error) {
+    console.error('Generate brevo webhook error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * PUT /api/admin/brevo-webhooks/:userId/toggle
+ * Toggle webhook active status
+ */
+router.put('/brevo-webhooks/:userId/toggle', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { is_active } = req.body;
+    console.log(`📨 Admin route request: PUT /brevo-webhooks/${userId}/toggle`);
+
+    const [result] = await pool.query(`
+      UPDATE brevo_webhooks
+      SET is_active = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = ?
+    `, [is_active ? 1 : 0, userId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Webhook configuration not found' });
+    }
+
+    res.json({ message: 'Webhook status updated successfully' });
+  } catch (error) {
+    console.error('Toggle brevo webhook error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * DELETE /api/admin/brevo-webhooks/:userId
+ * Delete webhook configuration for user
+ */
+router.delete('/brevo-webhooks/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(`📨 Admin route request: DELETE /brevo-webhooks/${userId}`);
+
+    const [result] = await pool.query(
+      'DELETE FROM brevo_webhooks WHERE user_id = ?',
+      [userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Webhook configuration not found' });
+    }
+
+    res.json({ message: 'Webhook configuration deleted successfully' });
+  } catch (error) {
+    console.error('Delete brevo webhook error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 export default router;
+

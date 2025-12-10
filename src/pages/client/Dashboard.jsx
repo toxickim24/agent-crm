@@ -34,7 +34,8 @@ const ClientDashboard = () => {
     { to: '/dashboard', label: 'Home', icon: Home, permission: 'home' },
     { to: '/dashboard/contacts', label: 'Contacts', icon: Users, permission: 'contacts' },
     { to: '/dashboard/calls-texts', label: 'Calls & Texts', icon: Phone, permission: 'calls_texts' },
-    { to: '/dashboard/emails', label: 'Emails', icon: Mail, permission: 'emails' },
+    { to: '/dashboard/emails', label: 'Emails (Mailchimp)', icon: Mail, permission: 'emails' },
+    { to: '/dashboard/brevo', label: 'Emails (Brevo)', icon: Mail, permission: 'brevo' },
     { to: '/dashboard/mailers', label: 'Mailers', icon: Send, permission: 'mailers' }
   ];
 

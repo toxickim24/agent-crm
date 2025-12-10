@@ -65,7 +65,7 @@ router.post('/login', async (req, res) => {
 
     // Find user
     const [users] = await pool.query(
-      `SELECT u.*, p.home, p.contacts, p.calls_texts, p.emails, p.mailers
+      `SELECT u.*, p.home, p.contacts, p.calls_texts, p.emails, p.brevo, p.mailers
        FROM users u
        LEFT JOIN permissions p ON u.id = p.user_id
        WHERE u.email = ? AND u.deleted_at IS NULL`,
@@ -131,6 +131,8 @@ router.get('/me', authenticateToken, async (req, res) => {
               p.mailer_sync, p.mailer_start, p.mailer_pause, p.mailer_end, p.mailer_delete,
               p.email_sync_contacts, p.email_sync_campaigns, p.email_view_campaign,
               p.email_export_csv, p.email_archive_campaign, p.email_delete_campaign,
+              p.brevo, p.brevo_view_contacts, p.brevo_view_lists, p.brevo_view_campaigns,
+              p.brevo_view_stats, p.brevo_sync_data, p.brevo_export_csv,
               p.allowed_lead_types
        FROM users u
        LEFT JOIN permissions p ON u.id = p.user_id

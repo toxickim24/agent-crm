@@ -15,6 +15,7 @@ import Statuses from './pages/admin/Statuses';
 import Campaigns from './pages/admin/Campaigns';
 import ApiKeys from './pages/admin/ApiKeys';
 import MailchimpConfig from './pages/admin/MailchimpConfig';
+import BrevoConfig from './pages/admin/BrevoConfig';
 
 // Client pages
 import ClientDashboard from './pages/client/Dashboard';
@@ -24,6 +25,7 @@ import CallsTexts from './pages/client/CallsTexts';
 import Emails from './pages/client/EmailsEnhanced';
 import Mailers from './pages/client/Mailers';
 import Settings from './pages/client/Settings';
+import BrevoAnalytics from './pages/brevo/BrevoAnalytics';
 
 function App() {
   return (
@@ -86,6 +88,14 @@ function App() {
               }
             />
             <Route
+              path="/admin/brevo-config"
+              element={
+                <ProtectedRoute requireAdmin={true}>
+                  <BrevoConfig />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/admin/*"
               element={<Navigate to="/admin/dashboard" replace />}
             />
@@ -103,6 +113,7 @@ function App() {
               <Route path="contacts" element={<Contacts />} />
               <Route path="calls-texts" element={<CallsTexts />} />
               <Route path="emails" element={<Emails />} />
+              <Route path="brevo" element={<BrevoAnalytics />} />
               <Route path="mailers" element={<Mailers />} />
               <Route path="settings" element={<Settings />} />
             </Route>
