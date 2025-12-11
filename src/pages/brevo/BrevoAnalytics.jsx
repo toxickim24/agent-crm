@@ -10,11 +10,13 @@ import {
   List,
   FileText,
   Radio,
+  Zap,
   AlertTriangle,
   Settings,
   Loader
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import API_BASE_URL from '../../config/api';
 import OverviewDashboard from './dashboards/OverviewDashboard';
 import ContactIntelligenceDashboard from './dashboards/ContactIntelligenceDashboard';
@@ -23,6 +25,7 @@ import TimeOfDayDashboard from './dashboards/TimeOfDayDashboard';
 import ListAnalyticsDashboard from './dashboards/ListAnalyticsDashboard';
 import EventLogDashboard from './dashboards/EventLogDashboard';
 import RealTimeEventFeed from './dashboards/RealTimeEventFeed';
+import AutomationsDashboard from './dashboards/AutomationsDashboard';
 
 /**
  * Brevo Analytics - Multi-Dashboard Container
@@ -34,13 +37,83 @@ import RealTimeEventFeed from './dashboards/RealTimeEventFeed';
  */
 const BrevoAnalytics = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [brevoConfigured, setBrevoConfigured] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const allTabs = [
+    {
+      id: 'overview',
+      name: 'Overview',
+      icon: BarChart3,
+      description: 'Key metrics and campaign performance',
+      permission: 'brevo_view_dashboard'
+    },
+    {
+      id: 'contacts',
+      name: 'Contact Intelligence',
+      icon: Users,
+      description: 'Engagement scoring and contact insights',
+      permission: 'brevo_view_contacts'
+    },
+    {
+      id: 'automations',
+      name: 'Automations',
+      icon: Zap,
+      description: 'View automation workflows and contact progress',
+      permission: 'brevo_view_automations'
+    },
+    {
+      id: 'campaigns',
+      name: 'Campaign Analytics',
+      icon: Mail,
+      description: 'Compare campaigns and analyze trends',
+      permission: 'brevo_view_campaigns'
+    },
+    {
+      id: 'lists',
+      name: 'List Analytics',
+      icon: List,
+      description: 'List health scores and subscriber quality',
+      permission: 'brevo_view_lists'
+    },
+    {
+      id: 'timeofday',
+      name: 'Time-of-Day',
+      icon: Clock,
+      description: 'Engagement patterns and optimal send times',
+      permission: 'brevo_view_time_analysis'
+    },
+    {
+      id: 'events',
+      name: 'Event Log',
+      icon: FileText,
+      description: 'View all captured webhook events (opens, clicks)',
+      permission: 'brevo_view_events'
+    },
+    {
+      id: 'live',
+      name: 'Live Feed',
+      icon: Radio,
+      description: 'Real-time event stream with auto-refresh',
+      permission: 'brevo_view_events'
+    }
+  ];
+
+  // Filter tabs based on user permissions (only if user is loaded)
+  const tabs = user ? allTabs.filter(tab => user[tab.permission]) : allTabs;
+
   useEffect(() => {
     checkBrevoConfiguration();
   }, []);
+
+  // Set active tab to first available tab if current tab is not available
+  useEffect(() => {
+    if (tabs.length > 0 && !tabs.find(tab => tab.id === activeTab)) {
+      setActiveTab(tabs[0].id);
+    }
+  }, [tabs, activeTab]);
 
   const checkBrevoConfiguration = async () => {
     try {
@@ -53,51 +126,6 @@ const BrevoAnalytics = () => {
       setLoading(false);
     }
   };
-
-  const tabs = [
-    {
-      id: 'overview',
-      name: 'Overview',
-      icon: BarChart3,
-      description: 'Key metrics and campaign performance'
-    },
-    {
-      id: 'contacts',
-      name: 'Contact Intelligence',
-      icon: Users,
-      description: 'Engagement scoring and contact insights'
-    },
-    {
-      id: 'campaigns',
-      name: 'Campaign Analytics',
-      icon: Mail,
-      description: 'Compare campaigns and analyze trends'
-    },
-    {
-      id: 'timeofday',
-      name: 'Time-of-Day',
-      icon: Clock,
-      description: 'Engagement patterns and optimal send times'
-    },
-    {
-      id: 'lists',
-      name: 'List Analytics',
-      icon: List,
-      description: 'List health scores and subscriber quality'
-    },
-    {
-      id: 'events',
-      name: 'Event Log',
-      icon: FileText,
-      description: 'View all captured webhook events (opens, clicks)'
-    },
-    {
-      id: 'live',
-      name: 'Live Feed',
-      icon: Radio,
-      description: 'Real-time event stream with auto-refresh'
-    }
-  ];
 
   const renderDashboard = () => {
     switch (activeTab) {
@@ -115,6 +143,8 @@ const BrevoAnalytics = () => {
         return <EventLogDashboard />;
       case 'live':
         return <RealTimeEventFeed />;
+      case 'automations':
+        return <AutomationsDashboard />;
       default:
         return <OverviewDashboard />;
     }
@@ -175,6 +205,39 @@ const BrevoAnalytics = () => {
                   detailed analytics here.
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if user has no tab permissions (only if user is loaded and configured)
+  if (user && brevoConfigured && tabs.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+        <div className="max-w-2xl mx-auto mt-20">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 border border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/20 rounded-full flex items-center justify-center mb-4">
+                <AlertTriangle className="text-orange-600 dark:text-orange-500" size={32} />
+              </div>
+
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                No Brevo Analytics Access
+              </h2>
+
+              <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">
+                You don't have permission to access any Brevo Analytics dashboards.
+                Please contact your administrator to grant you the necessary permissions.
+              </p>
+
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg transition-colors font-medium"
+              >
+                Back to Home
+              </button>
             </div>
           </div>
         </div>

@@ -175,12 +175,17 @@ const AdminDashboard = () => {
       email_archive_campaign: client.email_archive_campaign ?? true,
       email_delete_campaign: client.email_delete_campaign ?? true,
       brevo: client.brevo ?? true,
+      brevo_view_dashboard: client.brevo_view_dashboard ?? true,
       brevo_view_contacts: client.brevo_view_contacts ?? true,
-      brevo_view_lists: client.brevo_view_lists ?? true,
       brevo_view_campaigns: client.brevo_view_campaigns ?? true,
+      brevo_view_lists: client.brevo_view_lists ?? true,
+      brevo_view_events: client.brevo_view_events ?? true,
+      brevo_view_time_analysis: client.brevo_view_time_analysis ?? true,
+      brevo_view_automations: client.brevo_view_automations ?? true,
       brevo_view_stats: client.brevo_view_stats ?? true,
       brevo_sync_data: client.brevo_sync_data ?? true,
       brevo_export_csv: client.brevo_export_csv ?? true,
+      brevo_export_data: client.brevo_export_data ?? true,
       allowed_lead_types: parsedLeadTypes
     };
 
@@ -1086,15 +1091,18 @@ const AdminDashboard = () => {
 
             {/* Brevo Granular Permissions */}
             <div className="mb-3">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Brevo Permissions (Sendinblue)</h4>
-              <div className="grid grid-cols-4 gap-2">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Brevo Analytics Permissions</h4>
+              <div className="grid grid-cols-3 gap-2">
                 {[
-                  { key: 'brevo_view_contacts', label: 'View Contacts' },
-                  { key: 'brevo_view_lists', label: 'View Lists' },
-                  { key: 'brevo_view_campaigns', label: 'View Campaigns' },
-                  { key: 'brevo_view_stats', label: 'View Statistics' },
+                  { key: 'brevo_view_dashboard', label: 'Overview Dashboard' },
+                  { key: 'brevo_view_contacts', label: 'Contact Intelligence' },
+                  { key: 'brevo_view_campaigns', label: 'Campaign Analytics' },
+                  { key: 'brevo_view_lists', label: 'List Analytics' },
+                  { key: 'brevo_view_events', label: 'Event Log & Live Feed' },
+                  { key: 'brevo_view_time_analysis', label: 'Time-of-Day Analysis' },
+                  { key: 'brevo_view_automations', label: 'Automations' },
                   { key: 'brevo_sync_data', label: 'Sync/Refresh Data' },
-                  { key: 'brevo_export_csv', label: 'Export to CSV' }
+                  { key: 'brevo_export_data', label: 'Export Data' }
                 ].map((perm) => (
                   <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -1110,7 +1118,7 @@ const AdminDashboard = () => {
                 ))}
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Note: Editing Brevo API settings is only available to admin users.
+                Note: Editing Brevo API settings is only available to admin users. These permissions control access to different analytics dashboards and features.
               </p>
             </div>
 

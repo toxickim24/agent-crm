@@ -329,6 +329,59 @@ router.get('/contacts/paginated', checkBrevoPermission('brevo_view_contacts'), a
   }
 });
 
+/**
+ * GET /api/brevo/contacts/export
+ * Get ALL contacts (no pagination) for CSV export with scores, tiers, and filtering
+ */
+router.get('/contacts/export', checkBrevoPermission('brevo_export_data'), async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const search = req.query.search || '';
+    const tier = req.query.tier || ''; // 'Champion', 'Warm', 'Cold', or '' for all
+
+    // Build query with search
+    let whereClause = 'WHERE user_id = ?';
+    const params = [userId];
+
+    if (search) {
+      whereClause += ' AND email LIKE ?';
+      params.push(`%${search}%`);
+    }
+
+    // Get ALL contacts
+    const [allContacts] = await pool.query(
+      `SELECT * FROM brevo_contacts
+       ${whereClause}
+       ORDER BY email ASC`,
+      params
+    );
+
+    // Calculate score and tier for each contact
+    const scoredContacts = allContacts.map(contact => {
+      const score = BrevoScoringService.calculateContactScore(contact);
+      const contactTier = BrevoScoringService.getEngagementTier(score);
+      return {
+        ...contact,
+        score,
+        tier: contactTier,
+      };
+    });
+
+    // Filter by tier if specified
+    const filteredContacts = tier
+      ? scoredContacts.filter(c => c.tier === tier)
+      : scoredContacts;
+
+    res.json({
+      contacts: filteredContacts,
+      total: filteredContacts.length,
+    });
+  } catch (error) {
+    console.error('Get export Brevo contacts error:', error);
+    res.status(500).json({ error: 'Failed to export contacts' });
+  }
+});
+
 // =====================================================
 // CAMPAIGNS
 // =====================================================
@@ -881,6 +934,108 @@ router.get('/analytics/events/recent', checkBrevoPermission('brevo_view_campaign
   } catch (error) {
     console.error('Error fetching recent events:', error);
     res.status(500).json({ error: 'Failed to fetch recent events' });
+  }
+});
+
+// =====================================================
+// AUTOMATIONS (READ-ONLY)
+// =====================================================
+
+/**
+ * GET /api/brevo/automations
+ * Get all automations with optional status filter (read-only)
+ */
+router.get('/automations', checkBrevoPermission('brevo_view_automations'), async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { status } = req.query; // 'active', 'paused', 'inactive', or undefined for all
+
+    // Build WHERE clause
+    let whereClause = 'WHERE user_id = ?';
+    const params = [userId];
+
+    if (status) {
+      whereClause += ' AND status = ?';
+      params.push(status);
+    }
+
+    // Fetch automations
+    const [automations] = await pool.query(
+      `SELECT
+        id,
+        brevo_automation_id,
+        name,
+        status,
+        contacts_total,
+        contacts_active,
+        contacts_paused,
+        contacts_finished,
+        contacts_started,
+        contacts_suspended,
+        last_edited_at,
+        created_at
+       FROM brevo_automations
+       ${whereClause}
+       ORDER BY last_edited_at DESC`,
+      params
+    );
+
+    // Get status counts
+    const [counts] = await pool.query(
+      `SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
+        SUM(CASE WHEN status = 'paused' THEN 1 ELSE 0 END) as paused,
+        SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END) as inactive
+       FROM brevo_automations
+       WHERE user_id = ?`,
+      [userId]
+    );
+
+    res.json({
+      automations,
+      counts: counts[0] || { total: 0, active: 0, paused: 0, inactive: 0 }
+    });
+  } catch (error) {
+    console.error('Error fetching automations:', error);
+    res.status(500).json({ error: 'Failed to fetch automations' });
+  }
+});
+
+/**
+ * GET /api/brevo/automations/stats
+ * Get aggregated automation statistics (read-only)
+ */
+router.get('/automations/stats', checkBrevoPermission('brevo_view_automations'), async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [stats] = await pool.query(
+      `SELECT
+        COUNT(*) as total_automations,
+        SUM(contacts_total) as total_contacts,
+        SUM(contacts_active) as total_active,
+        SUM(contacts_finished) as total_finished,
+        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_automations,
+        SUM(CASE WHEN status = 'paused' THEN 1 ELSE 0 END) as paused_automations,
+        SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END) as inactive_automations
+       FROM brevo_automations
+       WHERE user_id = ?`,
+      [userId]
+    );
+
+    res.json(stats[0] || {
+      total_automations: 0,
+      total_contacts: 0,
+      total_active: 0,
+      total_finished: 0,
+      active_automations: 0,
+      paused_automations: 0,
+      inactive_automations: 0
+    });
+  } catch (error) {
+    console.error('Error fetching automation stats:', error);
+    res.status(500).json({ error: 'Failed to fetch automation stats' });
   }
 });
 

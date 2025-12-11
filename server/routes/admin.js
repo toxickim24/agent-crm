@@ -99,8 +99,9 @@ router.get('/users', async (req, res) => {
              p.mailer_sync, p.mailer_start, p.mailer_pause, p.mailer_end, p.mailer_delete,
              p.email_sync_contacts, p.email_sync_campaigns, p.email_view_campaign,
              p.email_export_csv, p.email_archive_campaign, p.email_delete_campaign,
-             p.brevo, p.brevo_view_contacts, p.brevo_view_lists, p.brevo_view_campaigns,
-             p.brevo_view_stats, p.brevo_sync_data, p.brevo_export_csv,
+             p.brevo, p.brevo_view_dashboard, p.brevo_view_contacts, p.brevo_view_lists, p.brevo_view_campaigns,
+             p.brevo_view_events, p.brevo_view_time_analysis, p.brevo_view_automations, p.brevo_view_stats, p.brevo_sync_data,
+             p.brevo_export_csv, p.brevo_export_data,
              p.allowed_lead_types
       FROM users u
       LEFT JOIN permissions p ON u.id = p.user_id
@@ -750,8 +751,9 @@ router.put('/users/:id/permissions', async (req, res) => {
       mailer_sync, mailer_start, mailer_pause, mailer_end, mailer_delete,
       email_sync_contacts, email_sync_campaigns, email_view_campaign,
       email_export_csv, email_archive_campaign, email_delete_campaign,
-      brevo, brevo_view_contacts, brevo_view_lists, brevo_view_campaigns,
-      brevo_view_stats, brevo_sync_data, brevo_export_csv,
+      brevo, brevo_view_dashboard, brevo_view_contacts, brevo_view_lists, brevo_view_campaigns,
+      brevo_view_events, brevo_view_time_analysis, brevo_view_automations, brevo_view_stats, brevo_sync_data,
+      brevo_export_csv, brevo_export_data,
       allowed_lead_types
     } = req.body;
 
@@ -778,8 +780,9 @@ router.put('/users/:id/permissions', async (req, res) => {
            mailer_sync = ?, mailer_start = ?, mailer_pause = ?, mailer_end = ?, mailer_delete = ?,
            email_sync_contacts = ?, email_sync_campaigns = ?, email_view_campaign = ?,
            email_export_csv = ?, email_archive_campaign = ?, email_delete_campaign = ?,
-           brevo = ?, brevo_view_contacts = ?, brevo_view_lists = ?, brevo_view_campaigns = ?,
-           brevo_view_stats = ?, brevo_sync_data = ?, brevo_export_csv = ?,
+           brevo = ?, brevo_view_dashboard = ?, brevo_view_contacts = ?, brevo_view_lists = ?, brevo_view_campaigns = ?,
+           brevo_view_events = ?, brevo_view_time_analysis = ?, brevo_view_automations = ?, brevo_view_stats = ?, brevo_sync_data = ?,
+           brevo_export_csv = ?, brevo_export_data = ?,
            allowed_lead_types = ?
        WHERE user_id = ?`,
       [
@@ -810,12 +813,17 @@ router.put('/users/:id/permissions', async (req, res) => {
         email_archive_campaign ? 1 : 0,
         email_delete_campaign ? 1 : 0,
         brevo ? 1 : 0,
+        brevo_view_dashboard ? 1 : 0,
         brevo_view_contacts ? 1 : 0,
         brevo_view_lists ? 1 : 0,
         brevo_view_campaigns ? 1 : 0,
+        brevo_view_events ? 1 : 0,
+        brevo_view_time_analysis ? 1 : 0,
+        brevo_view_automations ? 1 : 0,
         brevo_view_stats ? 1 : 0,
         brevo_sync_data ? 1 : 0,
         brevo_export_csv ? 1 : 0,
+        brevo_export_data ? 1 : 0,
         allowedLeadTypesJson,
         id
       ]
