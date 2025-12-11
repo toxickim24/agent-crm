@@ -551,6 +551,115 @@ class BrevoService {
   }
 
   // =====================================================
+  // AUTOMATIONS
+  // =====================================================
+
+  /**
+   * Fetch all automations from Brevo
+   */
+  static async fetchAutomations(userId) {
+    try {
+      const apiKey = await this.getUserApiKey(userId);
+      const client = this.createClient(apiKey);
+
+      console.log(`🤖 Fetching Brevo automations for user ${userId}...`);
+
+      // Try different endpoint variations
+      let response;
+      let endpointUsed;
+
+      const endpointsToTry = [
+        '/automations',
+        '/automation/workflows',
+        '/marketing/automation/workflows',
+        '/emailCampaigns/automation'
+      ];
+
+      for (const endpoint of endpointsToTry) {
+        try {
+          console.log(`🔍 Trying endpoint: ${endpoint}`);
+          response = await client.get(endpoint);
+          endpointUsed = endpoint;
+          console.log(`✅ Success with endpoint: ${endpoint}`);
+          break;
+        } catch (err) {
+          console.log(`❌ Failed with ${endpoint}: ${err.response?.status} ${err.response?.data?.message || err.message}`);
+          if (endpoint === endpointsToTry[endpointsToTry.length - 1]) {
+            throw err; // If last endpoint also fails, throw the error
+          }
+        }
+      }
+
+      console.log('📊 Brevo API Response:', JSON.stringify(response.data, null, 2));
+
+      const automations = response.data.automations || [];
+
+      console.log(`✅ Fetched ${automations.length} automations from Brevo`);
+
+      // Cache automations in database
+      await this.cacheAutomations(userId, automations);
+
+      return automations;
+    } catch (error) {
+      console.error('❌ Error fetching Brevo automations:', error.response?.data || error.message);
+      console.error('Error details:', error.response?.status, error.response?.statusText);
+      throw new Error(error.response?.data?.message || 'Failed to fetch automations from Brevo');
+    }
+  }
+
+  /**
+   * Cache automations in database
+   */
+  static async cacheAutomations(userId, automations) {
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      for (const automation of automations) {
+        await connection.query(
+          `INSERT INTO brevo_automations
+           (user_id, brevo_automation_id, name, status, contacts_total, contacts_active,
+            contacts_paused, contacts_finished, contacts_started, contacts_suspended,
+            last_edited_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+           name = VALUES(name),
+           status = VALUES(status),
+           contacts_total = VALUES(contacts_total),
+           contacts_active = VALUES(contacts_active),
+           contacts_paused = VALUES(contacts_paused),
+           contacts_finished = VALUES(contacts_finished),
+           contacts_started = VALUES(contacts_started),
+           contacts_suspended = VALUES(contacts_suspended),
+           last_edited_at = VALUES(last_edited_at)`,
+          [
+            userId,
+            automation.id,
+            automation.name || 'Unnamed Automation',
+            automation.status || 'inactive',
+            automation.statistics?.contacts || 0,
+            automation.statistics?.contactsActive || 0,
+            automation.statistics?.contactsPaused || 0,
+            automation.statistics?.contactsFinished || 0,
+            automation.statistics?.contactsStarted || 0,
+            automation.statistics?.contactsSuspended || 0,
+            automation.lastEditedAt || new Date(),
+          ]
+        );
+      }
+
+      await connection.commit();
+      console.log(`✅ Cached ${automations.length} automations in database`);
+    } catch (error) {
+      await connection.rollback();
+      console.error('Error caching Brevo automations:', error);
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  // =====================================================
   // SYNC LOG - Track synchronization operations
   // =====================================================
 

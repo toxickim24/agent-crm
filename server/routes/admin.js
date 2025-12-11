@@ -1283,7 +1283,11 @@ router.post('/brevo-webhooks/:userId/generate', async (req, res) => {
 
     // Generate new webhook token
     const token = crypto.randomBytes(32).toString('hex');
-    const webhookUrl = `${req.protocol}://${req.get('host')}/api/webhooks/brevo/${token}`;
+
+    // Determine protocol - force HTTPS in production, respect forwarded protocol from proxy
+    const protocol = req.get('x-forwarded-proto') ||
+                     (process.env.NODE_ENV === 'production' ? 'https' : req.protocol);
+    const webhookUrl = `${protocol}://${req.get('host')}/api/webhooks/brevo/${token}`;
 
     // Insert or update webhook configuration
     await pool.query(`

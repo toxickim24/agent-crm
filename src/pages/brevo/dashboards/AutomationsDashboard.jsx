@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Zap, Play, Pause, StopCircle, Users, Calendar, TrendingUp } from 'lucide-react';
-import { StatCard, ChartCard, AlertBanner, EmptyState } from '../components/Widgets';
+import { Zap, Play, Pause, StopCircle, RefreshCw } from 'lucide-react';
+import { StatCard, AlertBanner, EmptyState } from '../components/Widgets';
 import AutomationCard from '../components/AutomationCard';
 import API_BASE_URL from '../../../config/api';
 
@@ -52,31 +52,53 @@ const AutomationsDashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header with Sync Button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            Brevo Automations
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Track and monitor your Brevo automation workflows (local data only)
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={fetchAutomations}
+            disabled={loading}
+            className="p-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg disabled:opacity-50 transition-colors"
+            title="Refresh data"
+          >
+            <RefreshCw className={loading ? 'animate-spin' : ''} size={18} />
+          </button>
+        </div>
+      </div>
+
       {/* Status Counters */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="All Automations"
-          value={counts.total.toString()}
+          value={(counts.total ?? 0).toString()}
           icon={<Zap className="text-blue-500" />}
         />
         <StatCard
           title="Active"
-          value={counts.active.toString()}
+          value={(counts.active ?? 0).toString()}
           icon={<Play className="text-green-500" />}
           trend="up"
-          trendValue={`${getPercentage(counts.active, counts.total)}%`}
+          trendValue={`${getPercentage(counts.active ?? 0, counts.total ?? 0)}%`}
         />
         <StatCard
           title="Paused"
-          value={counts.paused.toString()}
+          value={(counts.paused ?? 0).toString()}
           icon={<Pause className="text-orange-500" />}
-          trendValue={`${getPercentage(counts.paused, counts.total)}%`}
+          trendValue={`${getPercentage(counts.paused ?? 0, counts.total ?? 0)}%`}
         />
         <StatCard
           title="Inactive"
-          value={counts.inactive.toString()}
+          value={(counts.inactive ?? 0).toString()}
           icon={<StopCircle className="text-gray-500" />}
-          trendValue={`${getPercentage(counts.inactive, counts.total)}%`}
+          trendValue={`${getPercentage(counts.inactive ?? 0, counts.total ?? 0)}%`}
         />
       </div>
 
@@ -90,7 +112,7 @@ const AutomationsDashboard = () => {
               : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
           }`}
         >
-          All ({counts.total})
+          All ({counts.total ?? 0})
         </button>
         <button
           onClick={() => setSelectedStatus('active')}
@@ -100,7 +122,7 @@ const AutomationsDashboard = () => {
               : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
           }`}
         >
-          Active ({counts.active})
+          Active ({counts.active ?? 0})
         </button>
         <button
           onClick={() => setSelectedStatus('paused')}
@@ -110,7 +132,7 @@ const AutomationsDashboard = () => {
               : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
           }`}
         >
-          Paused ({counts.paused})
+          Paused ({counts.paused ?? 0})
         </button>
         <button
           onClick={() => setSelectedStatus('inactive')}
@@ -120,7 +142,7 @@ const AutomationsDashboard = () => {
               : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
           }`}
         >
-          Inactive ({counts.inactive})
+          Inactive ({counts.inactive ?? 0})
         </button>
       </div>
 
@@ -132,7 +154,7 @@ const AutomationsDashboard = () => {
           description={
             selectedStatus
               ? `No ${selectedStatus} automations found. Try selecting a different status filter.`
-              : 'No automations have been synced from Brevo yet.'
+              : 'No automation workflows are currently being tracked. This feature displays local reference data only, as Brevo does not provide an API to sync automation workflows.'
           }
         />
       ) : (
@@ -152,10 +174,10 @@ const AutomationsDashboard = () => {
             </svg>
           </div>
           <div>
-            <h4 className="text-sm font-medium text-blue-900 dark:text-blue-200">Read-Only Dashboard</h4>
+            <h4 className="text-sm font-medium text-blue-900 dark:text-blue-200">Local Tracking Only</h4>
             <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-              This dashboard displays automation data from Brevo for monitoring purposes only.
-              To activate, pause, or edit automations, please use the Brevo platform directly.
+              Brevo does not provide an API to sync automation workflows. This dashboard displays locally tracked data for reference only.
+              To create, edit, or manage your actual automation workflows, please use the Brevo platform directly.
             </p>
           </div>
         </div>

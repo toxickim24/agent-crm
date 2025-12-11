@@ -948,57 +948,89 @@ router.get('/analytics/events/recent', checkBrevoPermission('brevo_view_campaign
 router.get('/automations', checkBrevoPermission('brevo_view_automations'), async (req, res) => {
   try {
     const userId = req.user.id;
-    const { status } = req.query; // 'active', 'paused', 'inactive', or undefined for all
+    const { status, refresh } = req.query;
 
-    // Build WHERE clause
-    let whereClause = 'WHERE user_id = ?';
-    const params = [userId];
+    if (refresh === 'true') {
+      // Fetch fresh data from Brevo
+      const startTime = Date.now();
+      const automations = await BrevoService.fetchAutomations(userId);
+      const duration = Date.now() - startTime;
 
-    if (status) {
-      whereClause += ' AND status = ?';
-      params.push(status);
+      await BrevoService.logSync(userId, 'automations', 'success', automations.length, null, duration);
+
+      // Fetch from database to get counts
+      const [counts] = await pool.query(
+        `SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
+          SUM(CASE WHEN status = 'paused' THEN 1 ELSE 0 END) as paused,
+          SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END) as inactive
+         FROM brevo_automations
+         WHERE user_id = ?`,
+        [userId]
+      );
+
+      res.json({
+        automations,
+        counts: counts[0] || { total: 0, active: 0, paused: 0, inactive: 0 },
+        cached: false,
+        syncedAt: new Date(),
+      });
+    } else {
+      // Return cached data
+      // Build WHERE clause
+      let whereClause = 'WHERE user_id = ?';
+      const params = [userId];
+
+      if (status) {
+        whereClause += ' AND status = ?';
+        params.push(status);
+      }
+
+      // Fetch automations
+      const [automations] = await pool.query(
+        `SELECT
+          id,
+          brevo_automation_id,
+          name,
+          status,
+          contacts_total,
+          contacts_active,
+          contacts_paused,
+          contacts_finished,
+          contacts_started,
+          contacts_suspended,
+          last_edited_at,
+          created_at
+         FROM brevo_automations
+         ${whereClause}
+         ORDER BY last_edited_at DESC`,
+        params
+      );
+
+      // Get status counts
+      const [counts] = await pool.query(
+        `SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
+          SUM(CASE WHEN status = 'paused' THEN 1 ELSE 0 END) as paused,
+          SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END) as inactive
+         FROM brevo_automations
+         WHERE user_id = ?`,
+        [userId]
+      );
+
+      res.json({
+        automations,
+        counts: counts[0] || { total: 0, active: 0, paused: 0, inactive: 0 },
+        cached: true,
+        message: automations.length === 0 ? 'No cached automations. Click "Sync" to fetch from Brevo.' : null,
+      });
     }
-
-    // Fetch automations
-    const [automations] = await pool.query(
-      `SELECT
-        id,
-        brevo_automation_id,
-        name,
-        status,
-        contacts_total,
-        contacts_active,
-        contacts_paused,
-        contacts_finished,
-        contacts_started,
-        contacts_suspended,
-        last_edited_at,
-        created_at
-       FROM brevo_automations
-       ${whereClause}
-       ORDER BY last_edited_at DESC`,
-      params
-    );
-
-    // Get status counts
-    const [counts] = await pool.query(
-      `SELECT
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
-        SUM(CASE WHEN status = 'paused' THEN 1 ELSE 0 END) as paused,
-        SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END) as inactive
-       FROM brevo_automations
-       WHERE user_id = ?`,
-      [userId]
-    );
-
-    res.json({
-      automations,
-      counts: counts[0] || { total: 0, active: 0, paused: 0, inactive: 0 }
-    });
   } catch (error) {
     console.error('Error fetching automations:', error);
-    res.status(500).json({ error: 'Failed to fetch automations' });
+    await BrevoService.logSync(req.user.id, 'automations', 'failed', 0, error.message);
+    res.status(500).json({ error: error.message || 'Failed to fetch automations' });
   }
 });
 

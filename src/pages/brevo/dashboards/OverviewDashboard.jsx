@@ -21,6 +21,7 @@ const BrevoDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [stats, setStats] = useState(null);
   const [recentCampaigns, setRecentCampaigns] = useState([]);
   const [accountInfo, setAccountInfo] = useState(null);
@@ -63,6 +64,32 @@ const BrevoDashboard = () => {
       setAccountInfo({ configured: false });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const syncFromBrevo = async () => {
+    setSyncing(true);
+    try {
+      toast.info('Starting sync from Brevo...', { duration: 2000 });
+
+      // Sync Lists first
+      await axios.get(`${API_BASE_URL}/brevo/lists?refresh=true`);
+
+      // Sync Contacts
+      await axios.get(`${API_BASE_URL}/brevo/contacts?refresh=true&limit=10000`);
+
+      // Sync Campaigns
+      await axios.get(`${API_BASE_URL}/brevo/campaigns?refresh=true&limit=500`);
+
+      toast.success('Successfully synced all data from Brevo!');
+
+      // Refresh the dashboard to show new data
+      await fetchDashboardData();
+    } catch (error) {
+      console.error('Error syncing from Brevo:', error);
+      toast.error(error.response?.data?.error || 'Failed to sync from Brevo');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -157,13 +184,24 @@ const BrevoDashboard = () => {
             {accountInfo.email} - {accountInfo.companyName}
           </p>
         </div>
-        <button
-          onClick={fetchDashboardData}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg inline-flex items-center gap-2"
-        >
-          <RefreshCw size={18} />
-          Refresh
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={fetchDashboardData}
+            disabled={loading}
+            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg inline-flex items-center gap-2 disabled:opacity-50"
+          >
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+          <button
+            onClick={syncFromBrevo}
+            disabled={syncing || loading}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg inline-flex items-center gap-2 disabled:opacity-50"
+          >
+            <RefreshCw size={18} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Syncing...' : 'Sync from Brevo'}
+          </button>
+        </div>
       </div>
 
       {/* Quick Stats */}
