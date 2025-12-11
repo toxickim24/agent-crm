@@ -272,7 +272,15 @@ class BrevoService {
     try {
       await connection.beginTransaction();
 
+      let skippedCount = 0;
+
       for (const contact of contacts) {
+        // Skip contacts without email addresses (SMS-only contacts)
+        if (!contact.email) {
+          skippedCount++;
+          continue;
+        }
+
         await connection.query(
           `INSERT INTO brevo_contacts
            (user_id, brevo_contact_id, email, list_ids, attributes, email_blacklisted, sms_blacklisted,
@@ -302,7 +310,8 @@ class BrevoService {
       }
 
       await connection.commit();
-      console.log(`✅ Cached ${contacts.length} contacts in database`);
+      const cachedCount = contacts.length - skippedCount;
+      console.log(`✅ Cached ${cachedCount} contacts in database` + (skippedCount > 0 ? ` (skipped ${skippedCount} SMS-only contacts)` : ''));
     } catch (error) {
       await connection.rollback();
       console.error('Error caching Brevo contacts:', error);
