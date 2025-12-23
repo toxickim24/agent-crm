@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Users, UserPlus, Phone, MessageSquare, Mail, Send, MousePointer, Eye, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
+import { Users, UserPlus, Phone, MessageSquare, Mail, Send, MousePointer, Eye, DollarSign, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import API_BASE_URL from '../../config/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -17,7 +17,6 @@ const Home = () => {
     avg_open_rate: 0,
     avg_click_rate: 0
   });
-  const [totalCampaigns, setTotalCampaigns] = useState(0);
   const [dailyEmailStats, setDailyEmailStats] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,19 +26,17 @@ const Home = () => {
 
   const fetchData = async () => {
     try {
-      const [contactsRes, leadTypesRes, mailerStatsRes, mailchimpStatsRes, campaignsRes, dailyEmailRes] = await Promise.all([
+      const [contactsRes, leadTypesRes, mailerStatsRes, mailchimpStatsRes, dailyEmailRes] = await Promise.all([
         axios.get(`${API_BASE_URL}/contacts`),
         axios.get(`${API_BASE_URL}/lead-types`),
         axios.get(`${API_BASE_URL}/mailers/stats`),
         axios.get(`${API_BASE_URL}/mailchimp/stats`).catch(() => ({ data: {} })),
-        axios.get(`${API_BASE_URL}/mailchimp/campaigns`).catch(() => ({ data: { campaigns: [] } })),
         axios.get(`${API_BASE_URL}/mailchimp/stats/daily?days=30`).catch(() => ({ data: { dailyStats: [] } }))
       ]);
       setContacts(contactsRes.data.contacts);
       setLeadTypes(leadTypesRes.data);
       setMailerStats(mailerStatsRes.data);
       setMailchimpStats(mailchimpStatsRes.data);
-      setTotalCampaigns(campaignsRes.data.campaigns?.length || 0);
       setDailyEmailStats(dailyEmailRes.data.dailyStats || []);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -113,7 +110,6 @@ const Home = () => {
     { label: 'Total Clicks', value: (mailchimpStats.total_clicks || 0).toLocaleString(), icon: MousePointer, change: 'All campaigns', color: 'cyan', permission: 'emails' },
     { label: 'Avg Open Rate', value: `${(mailchimpStats.avg_open_rate || 0).toFixed(1)}%`, icon: TrendingUp, change: 'Campaign average', color: 'green', permission: 'emails' },
     { label: 'Avg Click Rate', value: `${(mailchimpStats.avg_click_rate || 0).toFixed(1)}%`, icon: TrendingUp, change: 'Campaign average', color: 'blue', permission: 'emails' },
-    { label: 'Total Campaigns', value: totalCampaigns.toString(), icon: BarChart3, change: 'All lead types', color: 'purple', permission: 'emails' },
     { label: 'Total Mailers Sent', value: mailerStats.total?.toString() || '0', icon: Send, change: 'All time', color: 'pink', permission: 'mailers' },
     { label: 'Mailers Sent Today', value: mailerStats.today?.toString() || '0', icon: Send, change: 'Today', color: 'orange', permission: 'mailers' },
     { label: 'Mail Campaign Cost', value: `$${mailerStats.totalCost?.toFixed(2) || '0.00'}`, icon: DollarSign, change: 'Total spent', color: 'red', permission: 'mailers' },
